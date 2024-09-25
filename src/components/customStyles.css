@@ -1,0 +1,109 @@
+.pagination {
+    display: flex;
+    justify-content: center;
+    margin-top: 20px;
+}
+
+.pagination li {
+    margin: 0 5px;
+}
+
+.pagination .active a {
+    background-color: #007bff;
+    color: white;
+}
+
+.pagination a {
+    color: #007bff;
+}
+
+thead th {
+    text-align: center;
+}
+
+thead th, tbody td {
+    vertical-align: middle;
+}
+
+
+
+
+.table {
+    table-layout: fixed;
+}
+
+.table th, .table td {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Establecer el ancho fijo de las columnas */
+.table th, .table td {
+    text-align: center;
+    white-space: nowrap; /* Evita que el texto se divida en múltiples líneas */
+    overflow: hidden;
+    text-overflow: ellipsis; /* Si el contenido es demasiado largo, muestra "..." */
+}
+
+.table-container {
+    overflow-x: auto; /* Añade una barra de desplazamiento horizontal si es necesario */
+    padding-bottom: 10px;
+}
+
+table thead th {
+    background-color: #052c65 !important; /* Fondo azul */
+    color: white !important;              /* Texto blanco */
+    text-align: center !important;        /* Texto centrado */
+    font-weight: bold !important;         /* Negrita */
+    padding: 10px !important;             /* Espaciado */
+}
+
+.pagination .page-link {
+    background-color: #052c65 !important; /* Fondo azul para la paginación */
+    color: white !important;              /* Texto blanco */
+    border: none !important;              /* Sin bordes */
+}
+
+.pagination .page-item.active .page-link {
+    background-color: #0056b3 !important; /* Fondo para página activa */
+    color: white !important;
+    border: none !important;
+}
+
+
+
+/* Mejorar el diseño de la paginación */
+.pagination {
+    display: flex;
+    justify-content: center;
+    margin-top: 20px;
+    font-size: 14px;
+}
+
+.pagination li {
+    margin: 0 5px;
+}
+
+.pagination .active a {
+    background-color: #007bff;
+    color: white;
+    border-radius: 5px;
+    padding: 5px 10px;
+}
+
+.pagination a {
+    color: #007bff;
+    padding: 5px 10px;
+    border-radius: 5px;
+}
+
+thead th {
+    text-align: center;
+}
+
+.table {
+    table-layout: auto; /* Permite que las columnas se ajusten automáticamente */
+    width: 100%; /* Ocupa el ancho completo del contenedor */
+}
+

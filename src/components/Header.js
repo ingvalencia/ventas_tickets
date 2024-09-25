@@ -7,7 +7,6 @@ const Header = () => {
             <Container>
                 <Navbar.Brand className="mx-auto text-center">
                     <h2>Ventas Tickets CEF</h2>
-                    
                 </Navbar.Brand>
             </Container>
         </Navbar>
