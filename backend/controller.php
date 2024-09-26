@@ -135,25 +135,35 @@ if ($tipo == 'obtener_locales') {
         WHERE [Fecha_vta] BETWEEN @feci AND @fecf
         GROUP BY [SERIE], [Fecha_vta], [Fecha_factura], [uuid_Global_Si_ existe], [ESTATUS]
         ORDER BY [SERIE], [Fecha_vta], [Fecha_factura], [uuid_Global_Si_ existe], [ESTATUS];
-
+        
         INSERT INTO @tabres
-        SELECT vt.cef, vt.fec, SUM(vt.imp_vtas) imp_vtas, SUM(vt.imp_tic_Coint) tickets_cointec, SUM(vt.imp_vtas) - SUM(vt.imp_tic_Coint) 'Diferencia vtas vs Tic cointe', 
-        SUM(vt.imp_tic_sub) ticket_sub, SUM(vt.imp_tick_fal) tickets_Falt, SUM(vt.imp_tic_sub) + SUM(vt.imp_tick_fal) 'Suma tickets sub +falt', 
-        (SUM(vt.imp_tic_sub) + SUM(vt.imp_tick_fal)) - SUM(vt.imp_tic_Coint) difrencia
-        FROM @tqbvtas vt
+        SELECT vt.cef
+            ,vt.fec
+            ,sum(vt.imp_vtas) imp_vtas
+	        ,sum(vt.imp_tic_Coint) tickets_cointec
+	        ,sum(vt.imp_vtas) - sum(vt.imp_tic_Coint) 'Diferencia vtas vs Tic cointe'
+            ,sum(vt.imp_tic_sub) ticket_sub
+	        ,sum(vt.imp_tick_fal) tickets_Falt
+	        ,sum(vt.imp_tic_sub) +sum(vt.imp_tick_fal) 'Suma tickets sub +falt'
+	        ,sum(vt.imp_tic_Coint) - (sum(vt.imp_tic_sub) +sum(vt.imp_tick_fal))  difrencia 
+	    FROM @tqbvtas vt
         WHERE vt.fec BETWEEN @feci AND @fecf
         GROUP BY vt.cef, vt.fec
         ORDER BY vt.cef, vt.fec;
 
-        SELECT re.cef Cef, re.fec 'Fecha_Vta', 
-        CASE WHEN re.fec <> fa.fec_fac THEN 0 ELSE re.imp_vtas END 'Imp_Vtas', 
-        CASE WHEN re.fec <> fa.fec_fac THEN 0 ELSE re.imp_tic_coin END 'Imp_Ticket_cointech', 
-        CASE WHEN re.fec <> fa.fec_fac THEN 0 ELSE re.dif_vtas_ticoin END 'Diferencia_vtas_vs_tic_coint', 
-        CASE WHEN re.fec <> fa.fec_fac THEN 0 ELSE re.imp_tic_sub END 'imp_tick_sub',
-        CASE WHEN re.fec <> fa.fec_fac THEN 0 ELSE re.imp_tick_falt END 'Imp_tickets_faltan', 
-        CASE WHEN re.fec <> fa.fec_fac THEN 0 ELSE re.sum_Tic_sun_fal END 'Suma_ticketa_falt_cointech',
-        CASE WHEN re.fec <> fa.fec_fac THEN 0 ELSE re.dif_tic_sub_fal_coin END 'Difere_tic_sub_fal_menos_coint',
-        fa.uuid 'Factura', fa.imp  'Importe_Factura_global', fa.fec_fac 'fecha_real_factura'
+        SELECT re.cef Cef, 
+        re.fec 'Fecha_Vta', 
+        re.imp_vtas 'Imp_Vtas',
+        re.imp_tic_coin 'Imp_Ticket_cointech',
+        re.dif_vtas_ticoin 'Diferencia_vtas_vs_tic_coint',
+        re.imp_tic_sub 'imp_tick_sub',
+        re.imp_tick_falt 'Imp_tickets_faltan',
+        re.sum_Tic_sun_fal 'Suma_ticketa_falt_cointech',
+        re.dif_tic_sub_fal_coin 'Difere_tic_sub_fal_menos_coint',
+        fa.uuid 'Factura',
+	    fa.imp  'Importe_Factura_global',
+	    fa.fec_fac 'fecha_real_factura'
+        
         FROM @tabres re
         LEFT JOIN @tabfac fa ON fa.cef = re.cef AND fa.fec_vta = re.fec
         WHERE re.fec BETWEEN @feci AND @fecf AND re.cef LIKE @cef;
