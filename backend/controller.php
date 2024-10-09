@@ -96,27 +96,29 @@ if ($tipo == 'obtener_locales') {
         SET @fecf = '$fecf';
         SET @cef = '$cef';
 
-        IF @cef = ''
-            SET @cef = '%%';
+        IF ISNUMERIC(@cef) = 0 AND @cef <> '%%'
+        BEGIN
+            SET @cef = '%%'; 
+        END
 
         DECLARE @tqbvtas table(cef nvarchar(10),fec date,imp_vtas decimal(12,2), imp_tic_sub decimal(12,2), imp_tick_fal decimal(12,2),imp_tic_Coint decimal(12,2));
         DECLARE @tabfac table(cef nvarchar(10),fec_vta date, fec_fac date,uuid nvarchar(100),esta nvarchar(100), imp decimal(12,2));
         DECLARE @tabres table(cef nvarchar(10),fec date,imp_vtas decimal(12,2),imp_tic_coin decimal(12,2),dif_vtas_ticoin decimal(12,2),imp_tic_sub decimal(12,2),imp_tick_falt decimal(12,2), sum_Tic_sun_fal decimal(12,2),dif_tic_sub_fal_coin decimal(12,2));
 
         INSERT INTO @tqbvtas
-        SELECT [cef], [fecha], [venta]-[ventaWeb] vtas_real, 0, 0, 0
+        SELECT CAST([cef] AS nvarchar(10)), [fecha], [venta]-[ventaWeb] vtas_real, 0, 0, 0
         FROM [dbo].[rtv_ventas]
         WHERE fecha BETWEEN @feci AND @fecf;
 
         INSERT INTO @tqbvtas
-        SELECT [SERIE], [Fecha_vta], 0, SUM(CAST([TOTAL] AS decimal(12,2))) total, 0, 0
+        SELECT CAST([SERIE] AS nvarchar(10)), [Fecha_vta], 0, SUM(CAST([TOTAL] AS decimal(12,2))) total, 0, 0
         FROM [192.168.0.174].[COINTECH_DB].[dbo].[Tickets_cs_facturacion]
         WHERE fecha_vta BETWEEN @feci AND @fecf
         GROUP BY [SERIE], [Fecha_vta]
         ORDER BY [SERIE], [Fecha_vta];
 
         INSERT INTO @tqbvtas
-        SELECT [CLOCAL], [FECHA], 0, 0, SUM([IMPORTE]), 0
+        SELECT CAST([CLOCAL] AS nvarchar(10)), [FECHA], 0, 0, SUM([IMPORTE]), 0
         FROM [192.168.0.174].[COINTECH_DB].[dbo].[FA_POS_TICKETS_FAL]
         WHERE fecha BETWEEN @feci AND @fecf
         GROUP BY [CLOCAL], [FECHA]
@@ -130,7 +132,7 @@ if ($tipo == 'obtener_locales') {
         ORDER BY [CEF], [FECHA];
 
         INSERT INTO @tabfac
-        SELECT [SERIE], [Fecha_vta], [Fecha_factura], [uuid_Global_Si_ existe], [ESTATUS], SUM(CAST([TOTAL] AS decimal(12,2))) total
+        SELECT CAST([SERIE] AS nvarchar(10)), [Fecha_vta], [Fecha_factura], [uuid_Global_Si_ existe], [ESTATUS], SUM(CAST([TOTAL] AS decimal(12,2))) total
         FROM [192.168.0.174].[COINTECH_DB].[dbo].[Tickets_cs_facturacion]
         WHERE [Fecha_vta] BETWEEN @feci AND @fecf
         GROUP BY [SERIE], [Fecha_vta], [Fecha_factura], [uuid_Global_Si_ existe], [ESTATUS]
@@ -140,13 +142,13 @@ if ($tipo == 'obtener_locales') {
         SELECT vt.cef
             ,vt.fec
             ,sum(vt.imp_vtas) imp_vtas
-	        ,sum(vt.imp_tic_Coint) tickets_cointec
-	        ,sum(vt.imp_vtas) - sum(vt.imp_tic_Coint) 'Diferencia vtas vs Tic cointe'
+            ,sum(vt.imp_tic_Coint) tickets_cointec
+            ,sum(vt.imp_vtas) - sum(vt.imp_tic_Coint) 'Diferencia vtas vs Tic cointe'
             ,sum(vt.imp_tic_sub) ticket_sub
-	        ,sum(vt.imp_tick_fal) tickets_Falt
-	        ,sum(vt.imp_tic_sub) +sum(vt.imp_tick_fal) 'Suma tickets sub +falt'
-	        ,sum(vt.imp_tic_Coint) - (sum(vt.imp_tic_sub) +sum(vt.imp_tick_fal))  difrencia 
-	    FROM @tqbvtas vt
+            ,sum(vt.imp_tick_fal) tickets_Falt
+            ,sum(vt.imp_tic_sub) + sum(vt.imp_tick_fal) 'Suma tickets sub +falt'
+            ,sum(vt.imp_tic_Coint) - (sum(vt.imp_tic_sub) + sum(vt.imp_tick_fal))  difrencia 
+        FROM @tqbvtas vt
         WHERE vt.fec BETWEEN @feci AND @fecf
         GROUP BY vt.cef, vt.fec
         ORDER BY vt.cef, vt.fec;
@@ -161,14 +163,13 @@ if ($tipo == 'obtener_locales') {
         re.sum_Tic_sun_fal 'Suma_ticketa_falt_cointech',
         re.dif_tic_sub_fal_coin 'Difere_tic_sub_fal_menos_coint',
         fa.uuid 'Factura',
-	    fa.imp  'Importe_Factura_global',
-	    fa.fec_fac 'fecha_real_factura'
+        fa.imp  'Importe_Factura_global',
+        fa.fec_fac 'fecha_real_factura'
         
         FROM @tabres re
         LEFT JOIN @tabfac fa ON fa.cef = re.cef AND fa.fec_vta = re.fec
         WHERE re.fec BETWEEN @feci AND @fecf AND re.cef LIKE @cef;
     ";
-
     $result = fetch_data($query, $mysqli2);
     echo json_encode(["success" => 1, "data" => $result]);
 
