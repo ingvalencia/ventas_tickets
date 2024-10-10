@@ -96,9 +96,10 @@ if ($tipo == 'obtener_locales') {
         SET @fecf = '$fecf';
         SET @cef = '$cef';
 
-        IF ISNUMERIC(@cef) = 0 AND @cef <> '%%'
+        -- Validar si el CEF es 'TODOS'
+        IF @cef = 'TODOS'
         BEGIN
-            SET @cef = '%%'; 
+            SET @cef = '%%';  -- Wildcard para todos los valores
         END
 
         DECLARE @tqbvtas table(cef nvarchar(10),fec date,imp_vtas decimal(12,2), imp_tic_sub decimal(12,2), imp_tick_fal decimal(12,2),imp_tic_Coint decimal(12,2));
@@ -168,7 +169,9 @@ if ($tipo == 'obtener_locales') {
         
         FROM @tabres re
         LEFT JOIN @tabfac fa ON fa.cef = re.cef AND fa.fec_vta = re.fec
-        WHERE re.fec BETWEEN @feci AND @fecf AND re.cef LIKE @cef;
+        WHERE re.fec BETWEEN @feci AND @fecf 
+        -- Aquí se usa 'LIKE' para admitir el wildcard '%%'
+        AND (re.cef LIKE @cef);
     ";
     $result = fetch_data($query, $mysqli2);
     echo json_encode(["success" => 1, "data" => $result]);
