@@ -25,6 +25,21 @@ thead th, tbody td {
     vertical-align: middle;
 }
 
+/* Custom styles */
+.navbar {
+    background-color: #052c65 !important; /* Azul oscuro personalizado */
+}
+
+.nav-link {
+    color: #fff !important;
+    font-size: 18px; /* Tamaño más grande para el texto */
+}
+
+.nav-link:hover {
+    background-color: #0056b3;
+    color: white !important;
+    border-radius: 5px;
+}
 
 
 
@@ -106,4 +121,5 @@ thead th {
     table-layout: auto; /* Permite que las columnas se ajusten automáticamente */
     width: 100%; /* Ocupa el ancho completo del contenedor */
 }
+
 

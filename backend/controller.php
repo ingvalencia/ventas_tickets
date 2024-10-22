@@ -178,7 +178,77 @@ if ($tipo == 'obtener_locales') {
 
     // Cerrar la conexión a SQL Server
     mssql_close($mysqli2);
+}elseif ($tipo == 'consultar_ventas_otros_reportes') {
+    // Validar los parámetros
+    if (!isset($data['cef']) || !isset($data['feci']) || !isset($data['fecf'])) {
+        echo json_encode(["success" => 0, "error" => "Parámetros faltantes: cef, feci o fecf"]);
+        exit;
+    }
+
+    // Asignar los valores enviados por el frontend
+    $cef = $data['cef'];
+    $feci = $data['feci'];
+    $fecf = $data['fecf'];
+
+    // Comprobar si se seleccionó "TODOS"
+    if ($cef === 'TODOS') {
+        $cef = '%%';  // '%%' para SQL significa que coincida con cualquier valor
+    }
+
+    // Cerrar cualquier conexión previa
+    if (isset($mysqli)) {
+        mssql_close($mysqli);  
+    }
+
+    // Conectar al servidor 192.168.0.174 para ejecutar la consulta
+    $mysqli = mssql_connect($sqlsrv_server, $sqlsrv_username, $sqlsrv_password);
+    if (!$mysqli) {
+        echo json_encode(["success" => 0, "error" => "Conexión fallida a SQL Server en la base de datos principal"]);
+        exit;
+    }
+
+    if (!mssql_select_db($sqlsrv_database, $mysqli)) {
+        echo json_encode(["success" => 0, "error" => "No se pudo seleccionar la base de datos en el servidor principal"]);
+        exit;
+    }
+
+    // Establecer las opciones ANSI_NULLS y ANSI_WARNINGS
+    mssql_query("SET ANSI_NULLS ON", $mysqli);
+    mssql_query("SET ANSI_WARNINGS ON", $mysqli);
+
+    // Ejecutar la consulta desde 192.168.0.174 al servidor vinculado [192.168.0.59]
+    $query = "
+    DECLARE @tabvtas table(cef nvarchar(10), fec date, impvta decimal(12, 2));
+
+    -- Sumar las ventas por CEF, fecha desde el servidor vinculado [192.168.0.59]
+    INSERT INTO @tabvtas
+    SELECT [SERIE], [Fecha_vta], SUM(CAST([TOTAL] AS decimal(12,2)))
+    FROM [COINTECH_DB].[dbo].[Tickets_cs_facturacion]
+    WHERE [Fecha_vta] BETWEEN '$feci' AND '$fecf'
+    GROUP BY [SERIE], [Fecha_vta]
+    ORDER BY [SERIE], [Fecha_vta];
+
+    -- Selección de las ventas desde el servidor vinculado
+    SELECT vt.[cef], vt.[fecha], 
+        (vt.[venta] - vt.[ventaWeb]) AS vtas_real, 
+        tm.impvta AS 'imp_global', 
+        (vt.[venta] - vt.[ventaWeb]) - tm.impvta AS Diferencia
+    FROM [192.168.0.59].[GrupoDiniz].[dbo].[rtv_ventas] vt
+    LEFT JOIN @tabvtas tm 
+        ON tm.cef = vt.cef COLLATE Modern_Spanish_CI_AS 
+        AND tm.fec = vt.fecha
+    WHERE vt.fecha BETWEEN '$feci' AND '$fecf' 
+    AND vt.cef LIKE '$cef'
+    ORDER BY vt.[cef], vt.[fecha];
+    ";
+
+    $result = fetch_data($query, $mysqli);
+    echo json_encode(["success" => 1, "data" => $result]);
+
+    // Cerrar la conexión a SQL Server después de la consulta
+    mssql_close($mysqli);
 }
+
 
 // Cerrar la conexión a SQL Server
 mssql_close($mysqli);
