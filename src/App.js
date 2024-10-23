@@ -7,12 +7,12 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 
 function App() {
     return (
-        <Router>
+        <Router basename="/diniz/GioValencia/ventas-tickets">
             <Header />
             <div className="container">
                 <Routes>
-                    <Route exact path="/" element={<DateRangeForm />} /> {/* Mantén tu componente actual */}
-                    <Route path="/otros-reportes" element={<OtrosReportes />} /> {/* Nueva página */}
+                    <Route exact path="/" element={<DateRangeForm />} />
+                    <Route path="/otros-reportes" element={<OtrosReportes />} />
                 </Routes>
             </div>
         </Router>

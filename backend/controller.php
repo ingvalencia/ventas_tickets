@@ -247,7 +247,95 @@ if ($tipo == 'obtener_locales') {
 
     // Cerrar la conexión a SQL Server después de la consulta
     mssql_close($mysqli);
+}elseif ($tipo == 'reporte_venta_real') {
+    // Validar los parámetros
+    if (!isset($data['cef']) || !isset($data['fecha'])) {
+        echo json_encode(["success" => 0, "error" => "Parámetros faltantes: cef o fecha"]);
+        exit;
+    }
+
+    // Asignar los valores enviados por el frontend
+    $cef = $data['cef'];
+    $fecha = $data['fecha'];
+
+    // Conexión a la base de datos principal
+    if (!mssql_select_db($sqlsrv_database, $mysqli)) {
+        echo json_encode(["success" => 0, "error" => "No se pudo seleccionar la base de datos"]);
+        exit;
+    }
+
+    // Establecer las opciones ANSI_NULLS y ANSI_WARNINGS
+    mssql_query("SET ANSI_NULLS ON", $mysqli);
+    mssql_query("SET ANSI_WARNINGS ON", $mysqli);
+
+    // Consulta SQL para obtener los datos de "Venta Real Cointech"
+    $query = "
+        SELECT
+            [CEF] as cef,
+            [FECHA] as fecha_vta,
+            [ID_TRANSACCION] as id_transaccion,
+            [HORA] as hora,
+            [NUMERO_TERMINAL] as numero_terminal,
+            [NUMERO_COMPROBANTE] as numero_comprobante,
+            CAST([IMPORTE] AS decimal(12, 2)) as importe_vta
+        FROM
+            [COINTECH_DB].[dbo].[tickets_db_cointech_cef]
+        WHERE
+            cef = '$cef'
+            AND fecha = '$fecha'
+    ";
+
+    // Ejecutar la consulta
+    $result = fetch_data($query, $mysqli);
+
+    if (count($result) > 0) {
+        echo json_encode(["success" => 1, "data" => $result]);
+    } else {
+        echo json_encode(["success" => 0, "error" => "No se encontraron datos para esa fecha y CEF"]);
+    }
+
+    // Cerrar la conexión a SQL Server
+    mssql_close($mysqli);
+}elseif ($tipo == 'reporte_importe_fac_global') {
+    // Validar los parámetros
+    if (!isset($data['cef']) || !isset($data['fecha'])) {
+        echo json_encode(["success" => 0, "error" => "Parámetros faltantes: cef o fecha"]);
+        exit;
+    }
+
+    // Asignar los valores enviados por el frontend
+    $cef = $data['cef'];
+    $fecha = $data['fecha'];
+
+    // Ejecutar la consulta para obtener el reporte Importe Fac Global
+    $query = "
+        SELECT
+            [SERIE] AS cef,
+            [Fecha_vta] AS 'fecha_vta',
+            [Fecha_factura] AS 'fecha_factura',
+            [numero_comprobante] AS 'numero_comprobante',
+            [REFID],
+            [ESTATUS] AS 'estatus',
+            CAST([SUBTOTAL] AS decimal(12, 2)) AS 'sub_total',
+            [DESCUENTO] AS 'descuento',
+            CAST([TOTAL] AS decimal(12, 2)) AS 'importe_total',
+            [Folio_Global_Si_existe] AS 'folio_factura',
+            [uuid_Global_Si_ existe] AS 'uuid_global',
+            [fecha_expedición_Factura_Global] AS 'fecha_expedicion',
+            [Periodicidad_Global] AS 'periodicidad',
+            [Mes_Global] AS 'mes_global',
+            [Año_Global] AS 'año_global'
+        FROM [COINTECH_DB].[dbo].[Tickets_cs_facturacion]
+        WHERE serie = '$cef'
+        AND Fecha_vta BETWEEN '$fecha' AND '$fecha'
+        ORDER BY [SERIE], [Fecha_vta], [Fecha_factura]
+    ";
+
+    $result = fetch_data($query, $mysqli);
+    echo json_encode(["success" => 1, "data" => $result]);
 }
+
+
 
 
 // Cerrar la conexión a SQL Server
