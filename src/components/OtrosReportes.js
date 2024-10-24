@@ -167,13 +167,14 @@ const OtrosReportes = () => {
       
         // Agregar datos y aplicar formato condicional
         results.forEach((result, index) => {
-          const row = worksheet.addRow({
-            cef: result.cef,
-            fecha: formatFecha(result.fecha),
-            vtas_real: result.vtas_real,
-            imp_global: result.imp_global,
-            Diferencia: result.Diferencia,
-          });
+            const row = worksheet.addRow({
+                cef: result.cef,
+                fecha: formatFecha(result.fecha),
+                vtas_real: parseFloat(result.vtas_real).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+                imp_global: parseFloat(result.imp_global).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+                Diferencia: parseFloat(result.Diferencia).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+              });
+              
       
           // Formato condicional para la columna Diferencia
           const diferenciaCell = row.getCell(5); // La columna "Diferencia" es la 5
@@ -257,7 +258,7 @@ const OtrosReportes = () => {
                 Swal.showLoading();
             }
         });
-
+    
         try {
             const response = await fetch('https://diniz.com.mx/diniz/servicios/services/ventas-tickets/controller.php', {
                 method: 'POST',
@@ -270,13 +271,13 @@ const OtrosReportes = () => {
                     fecha: fecha,
                 }),
             });
-
+    
             const data = await response.json();
-
+    
             if (data.success === 1) {
                 const workbook = new ExcelJS.Workbook();
                 const worksheet = workbook.addWorksheet(`Reporte ${cef}`);
-
+    
                 worksheet.columns = [
                     { header: 'CEF', key: 'cef', width: 15 },
                     { header: 'Fecha Vta', key: 'fecha_vta', width: 15 },
@@ -286,7 +287,7 @@ const OtrosReportes = () => {
                     { header: 'Número Comprobante', key: 'numero_comprobante', width: 20 },
                     { header: 'Importe Vta', key: 'importe_vta', width: 15 },
                 ];
-
+    
                 worksheet.getRow(1).eachCell((cell) => {
                     cell.fill = {
                         type: 'pattern',
@@ -296,15 +297,24 @@ const OtrosReportes = () => {
                     cell.font = { color: { argb: 'FFFFFF' }, bold: true }; // Texto blanco y en negritas
                     cell.alignment = { horizontal: 'center' };
                 });
-
+    
                 data.data.forEach((row) => {
-                    worksheet.addRow(row);
+                    worksheet.addRow({
+                        cef: row.cef,
+                        fecha_vta: row.fecha_vta,
+                        id_transaccion: row.id_transaccion,
+                        hora: row.hora,
+                        numero_terminal: row.numero_terminal,
+                        // Aplicar formato de miles solo en "Número Comprobante" y "Importe Vta"
+                        numero_comprobante: parseFloat(row.numero_comprobante).toLocaleString('en-US'),
+                        importe_vta: parseFloat(row.importe_vta).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+                    });
                 });
-
+    
                 const buffer = await workbook.xlsx.writeBuffer();
                 const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
                 saveAs(blob, `reporte_venta_real_${cef}_${fecha}.xlsx`);
-
+    
                 Swal.close();
                 Swal.fire('Éxito', 'El archivo ha sido descargado', 'success');
             } else {
@@ -316,6 +326,7 @@ const OtrosReportes = () => {
             Swal.fire('Error', 'Hubo un problema con la solicitud', 'error');
         }
     };
+    
 
     const handleDownloadImporteFacGlobalReport = async (cef, fecha) => {
         const fechaFormateada = formatFecha(fecha);
@@ -388,9 +399,9 @@ const OtrosReportes = () => {
                         numero_comprobante: row.numero_comprobante,
                         REFID: row.REFID,
                         estatus: row.estatus,
-                        sub_total: row.sub_total,
+                        sub_total: parseFloat(row.sub_total).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
                         descuento: row.descuento,
-                        importe_total: row.importe_total,
+                        importe_total: parseFloat(row.importe_total).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
                         folio_factura: row.folio_factura,
                         uuid_global: row.uuid_global,
                         fecha_expedicion: formatFecha(row.fecha_expedicion), // Convertimos a objeto Date
@@ -500,8 +511,8 @@ const OtrosReportes = () => {
                         id_transaccion: row.id_transaccion,
                         hora: row.hora,
                         numero_terminal: row.numero_terminal,
-                        numero_comprobante: row.numero_comprobante,
-                        importe_vta: row.importe_vta
+                        numero_comprobante: parseFloat(row.numero_comprobante).toLocaleString('en-US'),
+                        importe_vta: parseFloat(row.importe_vta).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
                     });
                 });
     
@@ -545,9 +556,9 @@ const OtrosReportes = () => {
                         numero_comprobante: row.numero_comprobante,
                         REFID: row.REFID,
                         estatus: row.estatus,
-                        sub_total: row.sub_total,
+                        sub_total: parseFloat(row.sub_total).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
                         descuento: row.descuento,
-                        importe_total: row.importe_total,
+                        importe_total: parseFloat(row.importe_total).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
                         folio_factura: row.folio_factura,
                         uuid_global: row.uuid_global,
                         fecha_expedicion: formatFecha(row.fecha_expedicion).toLocaleString(), // Convertimos a objeto Date
@@ -689,7 +700,8 @@ const OtrosReportes = () => {
                                                 : 'transparent'
                                         }}
                                     >
-                                        {result.vtas_real}
+                                        {parseFloat(result.vtas_real).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+
                                     </td>
                                     <td
                                         style={{
@@ -700,7 +712,8 @@ const OtrosReportes = () => {
                                                 : 'transparent'
                                         }}
                                     >
-                                        {result.imp_global}
+                                        
+                                        {parseFloat(result.imp_global).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                     </td>
                                     <td
                                         style={{
@@ -711,7 +724,9 @@ const OtrosReportes = () => {
                                                 : 'transparent'
                                         }}
                                     >
-                                        {parseFloat(result.Diferencia).toFixed(2)}
+                                       
+                                        {parseFloat(result.Diferencia).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                        
                                     </td>
                                 </tr>
                             ))}
