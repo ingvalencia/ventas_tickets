@@ -218,29 +218,30 @@ if ($tipo == 'obtener_locales') {
 
     // Ejecutar la consulta desde 192.168.0.174 al servidor vinculado [192.168.0.59]
     $query = "
-    DECLARE @tabvtas table(cef nvarchar(10), fec date, impvta decimal(12, 2));
+        DECLARE @tabvtas table(cef nvarchar(10), fec date, impvta decimal(12, 2));
 
-    -- Sumar las ventas por CEF, fecha desde el servidor vinculado [192.168.0.59]
-    INSERT INTO @tabvtas
-    SELECT [SERIE], [Fecha_vta], SUM(CAST([TOTAL] AS decimal(12,2)))
-    FROM [COINTECH_DB].[dbo].[Tickets_cs_facturacion]
-    WHERE [Fecha_vta] BETWEEN '$feci' AND '$fecf'
-    GROUP BY [SERIE], [Fecha_vta]
-    ORDER BY [SERIE], [Fecha_vta];
+        -- Sumar las ventas por CEF, fecha desde el servidor vinculado [192.168.0.59]
+        INSERT INTO @tabvtas
+        SELECT [SERIE], [Fecha_vta], SUM(CAST([TOTAL] AS decimal(12,2)))
+        FROM [COINTECH_DB].[dbo].[Tickets_cs_facturacion]
+        WHERE [Fecha_vta] BETWEEN '$feci' AND '$fecf'
+        GROUP BY [SERIE], [Fecha_vta]
+        ORDER BY [SERIE], [Fecha_vta];
 
-    -- Selección de las ventas desde el servidor vinculado
-    SELECT vt.[cef], vt.[fecha], 
-        (vt.[venta] - vt.[ventaWeb]) AS vtas_real, 
-        tm.impvta AS 'imp_global', 
-        (vt.[venta] - vt.[ventaWeb]) - tm.impvta AS Diferencia
-    FROM [192.168.0.59].[GrupoDiniz].[dbo].[rtv_ventas] vt
-    LEFT JOIN @tabvtas tm 
-        ON tm.cef = vt.cef COLLATE Modern_Spanish_CI_AS 
-        AND tm.fec = vt.fecha
-    WHERE vt.fecha BETWEEN '$feci' AND '$fecf' 
-    AND vt.cef LIKE '$cef'
-    ORDER BY vt.[cef], vt.[fecha];
+        -- Selección de las ventas desde el servidor vinculado
+        SELECT vt.[cef], vt.[fecha], 
+            CAST((vt.[venta] - vt.[ventaWeb]) AS decimal(12, 2)) AS vtas_real, 
+            CAST(tm.impvta AS decimal(12, 2)) AS imp_global, 
+            CAST((vt.[venta] - vt.[ventaWeb]) - tm.impvta AS decimal(12, 2)) AS Diferencia
+        FROM [192.168.0.59].[GrupoDiniz].[dbo].[rtv_ventas] vt
+        LEFT JOIN @tabvtas tm 
+            ON tm.cef = vt.cef COLLATE Modern_Spanish_CI_AS 
+            AND tm.fec = vt.fecha
+        WHERE vt.fecha BETWEEN '$feci' AND '$fecf' 
+        AND vt.cef LIKE '$cef'
+        ORDER BY vt.[cef], vt.[fecha];
     ";
+
 
     $result = fetch_data($query, $mysqli);
     echo json_encode(["success" => 1, "data" => $result]);
@@ -270,20 +271,21 @@ if ($tipo == 'obtener_locales') {
 
     // Consulta SQL para obtener los datos de "Venta Real Cointech"
     $query = "
-        SELECT
-            [CEF] as cef,
-            [FECHA] as fecha_vta,
-            [ID_TRANSACCION] as id_transaccion,
-            [HORA] as hora,
-            [NUMERO_TERMINAL] as numero_terminal,
-            [NUMERO_COMPROBANTE] as numero_comprobante,
-            CAST([IMPORTE] AS decimal(12, 2)) as importe_vta
-        FROM
-            [COINTECH_DB].[dbo].[tickets_db_cointech_cef]
-        WHERE
-            cef = '$cef'
-            AND fecha = '$fecha'
+    SELECT
+        [CEF] as cef,
+        [FECHA] as fecha_vta,
+        [ID_TRANSACCION] as id_transaccion,
+        [HORA] as hora,
+        [NUMERO_TERMINAL] as numero_terminal,
+        CAST([NUMERO_COMPROBANTE] AS bigint) as numero_comprobante,
+        CAST([IMPORTE] AS decimal(12, 2)) as importe_vta
+    FROM
+        [COINTECH_DB].[dbo].[tickets_db_cointech_cef]
+    WHERE
+        cef = '$cef'
+        AND fecha = '$fecha'
     ";
+
 
     // Ejecutar la consulta
     $result = fetch_data($query, $mysqli);

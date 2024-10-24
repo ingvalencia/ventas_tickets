@@ -139,77 +139,80 @@ const OtrosReportes = () => {
         const workbook = new ExcelJS.Workbook();
         //const worksheet = workbook.addWorksheet('Reporte Ventas');
         const worksheetName = local === 'TODOS' 
-        ? `TODOS` 
-        : `${local}`;
-
+            ? `TODOS` 
+            : `${local}`;
+    
         const worksheet = workbook.addWorksheet(worksheetName);
-
-      
+    
         // Definir los encabezados con estilos
         worksheet.columns = [
-          { header: 'CEF', key: 'cef', width: 15 },
-          { header: 'Fecha', key: 'fecha', width: 15 },
-          { header: 'Venta Real Cointech', key: 'vtas_real', width: 15 },
-          { header: 'Importe Fac Global', key: 'imp_global', width: 15 },
-          { header: 'Diferencia', key: 'Diferencia', width: 15 },
+            { header: 'CEF', key: 'cef', width: 15 },
+            { header: 'Fecha', key: 'fecha', width: 15 },
+            { header: 'Venta Real Cointech', key: 'vtas_real', width: 15 },
+            { header: 'Importe Fac Global', key: 'imp_global', width: 15 },
+            { header: 'Diferencia', key: 'Diferencia', width: 15 },
         ];
-      
+    
         // Aplicar estilo a los encabezados
         worksheet.getRow(1).eachCell((cell) => {
-          cell.fill = {
-            type: 'pattern',
-            pattern: 'solid',
-            fgColor: { argb: '0000FF' }, // Fondo azul
-          };
-          cell.font = { color: { argb: 'FFFFFF' }, bold: true }; // Texto blanco
-          cell.alignment = { horizontal: 'center' };
+            cell.fill = {
+                type: 'pattern',
+                pattern: 'solid',
+                fgColor: { argb: '0000FF' }, // Fondo azul
+            };
+            cell.font = { color: { argb: 'FFFFFF' }, bold: true }; // Texto blanco
+            cell.alignment = { horizontal: 'center' };
         });
-      
+    
         // Agregar datos y aplicar formato condicional
         results.forEach((result, index) => {
             const row = worksheet.addRow({
                 cef: result.cef,
                 fecha: formatFecha(result.fecha),
-                vtas_real: parseFloat(result.vtas_real).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-                imp_global: parseFloat(result.imp_global).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-                Diferencia: parseFloat(result.Diferencia).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-              });
-              
-      
-          // Formato condicional para la columna Diferencia
-          const diferenciaCell = row.getCell(5); // La columna "Diferencia" es la 5
-          const diferencia = parseFloat(result.Diferencia);
-      
-          if (diferencia >= 2000) {
-            row.eachCell((cell) => {
-              cell.fill = {
-                type: 'pattern',
-                pattern: 'solid',
-                fgColor: { argb: 'f5d033' }, // Verde pistache
-              };
+                vtas_real: parseFloat(result.vtas_real), // Guardar como número
+                imp_global: parseFloat(result.imp_global), // Guardar como número
+                Diferencia: parseFloat(result.Diferencia), // Guardar como número
             });
-          } else if (diferencia <= -2000) {
-            row.eachCell((cell) => {
-              cell.fill = {
-                type: 'pattern',
-                pattern: 'solid',
-                fgColor: { argb: 'FFA07A' }, // Naranja melón
-              };
-            });
-          }
+    
+            // Aplicar formato numérico con comas y dos decimales a las columnas numéricas
+            row.getCell(3).numFmt = '#,##0.00'; // Formato para vtas_real
+            row.getCell(4).numFmt = '#,##0.00'; // Formato para imp_global
+            row.getCell(5).numFmt = '#,##0.00'; // Formato para Diferencia
+    
+            // Formato condicional para la columna Diferencia
+            const diferenciaCell = row.getCell(5); // La columna "Diferencia" es la 5
+            const diferencia = parseFloat(result.Diferencia);
+    
+            if (diferencia >= 2000) {
+                row.eachCell((cell) => {
+                    cell.fill = {
+                        type: 'pattern',
+                        pattern: 'solid',
+                        fgColor: { argb: 'f5d033' }, // Verde pistache
+                    };
+                });
+            } else if (diferencia <= -2000) {
+                row.eachCell((cell) => {
+                    cell.fill = {
+                        type: 'pattern',
+                        pattern: 'solid',
+                        fgColor: { argb: 'FFA07A' }, // Naranja melón
+                    };
+                });
+            }
         });
-      
+    
         // Generar el archivo Excel y descargarlo
         workbook.xlsx.writeBuffer().then((buffer) => {
-          const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-          const fileName = local === 'TODOS' 
-            ? `reporte_ventas_TODOS_${formatFecha(new Date())}` 
-            : `reporte_ventas_${local}_${formatFecha(new Date())}`;
-
+            const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+            const fileName = local === 'TODOS' 
+                ? `reporte_ventas_TODOS_${formatFecha(new Date())}` 
+                : `reporte_ventas_${local}_${formatFecha(new Date())}`;
+    
             saveAs(blob, `${fileName}.xlsx`);
-
         });
-      };
+    };
+    
 
       
       // Supongamos que el valor de `cef` está disponible en cada fila
@@ -299,16 +302,19 @@ const OtrosReportes = () => {
                 });
     
                 data.data.forEach((row) => {
-                    worksheet.addRow({
+                    const newRow = worksheet.addRow({
                         cef: row.cef,
                         fecha_vta: row.fecha_vta,
                         id_transaccion: row.id_transaccion,
                         hora: row.hora,
                         numero_terminal: row.numero_terminal,
-                        // Aplicar formato de miles solo en "Número Comprobante" y "Importe Vta"
-                        numero_comprobante: parseFloat(row.numero_comprobante).toLocaleString('en-US'),
-                        importe_vta: parseFloat(row.importe_vta).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+                        numero_comprobante: parseFloat(row.numero_comprobante), // Mantener como número
+                        importe_vta: parseFloat(row.importe_vta), // Mantener como número
                     });
+    
+                    // Aplicar formato de miles y dos decimales a las celdas numéricas
+                    newRow.getCell(6).numFmt = '#,##0';  // Formato para número_comprobante (sin decimales)
+                    newRow.getCell(7).numFmt = '#,##0.00';  // Formato para importe_vta (con decimales)
                 });
     
                 const buffer = await workbook.xlsx.writeBuffer();
@@ -327,10 +333,11 @@ const OtrosReportes = () => {
         }
     };
     
+    
 
     const handleDownloadImporteFacGlobalReport = async (cef, fecha) => {
         const fechaFormateada = formatFecha(fecha);
-
+    
         Swal.fire({
             title: 'Procesando...',
             text: 'Por favor, espere mientras se genera el archivo.',
@@ -392,16 +399,16 @@ const OtrosReportes = () => {
     
                 // Agregar los datos al archivo Excel
                 data.data.forEach((row) => {
-                    worksheet.addRow({
+                    const newRow = worksheet.addRow({
                         cef: row.cef,
                         fecha_vta: formatFecha(row.fecha_vta), // Convertimos a objeto Date
                         fecha_factura: formatFecha(row.fecha_factura), // Convertimos a objeto Date
                         numero_comprobante: row.numero_comprobante,
                         REFID: row.REFID,
                         estatus: row.estatus,
-                        sub_total: parseFloat(row.sub_total).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+                        sub_total: parseFloat(row.sub_total), // Mantener como número
                         descuento: row.descuento,
-                        importe_total: parseFloat(row.importe_total).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+                        importe_total: parseFloat(row.importe_total), // Mantener como número
                         folio_factura: row.folio_factura,
                         uuid_global: row.uuid_global,
                         fecha_expedicion: formatFecha(row.fecha_expedicion), // Convertimos a objeto Date
@@ -409,19 +416,22 @@ const OtrosReportes = () => {
                         mes_global: row.mes_global,
                         año_global: row.año_global,
                     });
+    
+                    // Aplicar formato de miles y dos decimales a las celdas numéricas
+                    newRow.getCell(7).numFmt = '#,##0.00';  // Formato para sub_total
+                    newRow.getCell(9).numFmt = '#,##0.00';  // Formato para importe_total
                 });
-                
+    
                 // Aplicar formato solo de fecha (sin hora) a las columnas de fechas
                 worksheet.getColumn('fecha_vta').numFmt = 'yyyy-mm-dd';
                 worksheet.getColumn('fecha_factura').numFmt = 'yyyy-mm-dd';
                 worksheet.getColumn('fecha_expedicion').numFmt = 'yyyy-mm-dd';
-                
     
                 // Guardar el archivo
                 const buffer = await workbook.xlsx.writeBuffer();
                 const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
                 saveAs(blob, `reporte_importe_fac_global_${cef}_${fechaFormateada}.xlsx`);
-                
+    
                 Swal.close();
                 Swal.fire('Éxito', 'El archivo ha sido descargado', 'success');
             } else {
@@ -433,6 +443,7 @@ const OtrosReportes = () => {
             Swal.fire('Error', 'Hubo un problema con la solicitud', 'error');
         }
     };
+    
 
     const handleDownloadBothReports = async (cef, fecha) => {
 
@@ -444,7 +455,7 @@ const OtrosReportes = () => {
                 Swal.showLoading();
             }
         });
-
+    
         try {
             // Realizar las dos solicitudes para obtener los datos de ambos reportes
             const [ventaRealResponse, facGlobalResponse] = await Promise.all([
@@ -505,15 +516,19 @@ const OtrosReportes = () => {
     
                 // Agregar datos a la primera pestaña
                 ventaRealData.data.forEach((row) => {
-                    worksheetVentaReal.addRow({
+                    const newRow = worksheetVentaReal.addRow({
                         cef: row.cef,
                         fecha_vta: formatFecha(row.fecha_vta), // Aplicamos tu función para dar formato a la fecha
                         id_transaccion: row.id_transaccion,
                         hora: row.hora,
                         numero_terminal: row.numero_terminal,
-                        numero_comprobante: parseFloat(row.numero_comprobante).toLocaleString('en-US'),
-                        importe_vta: parseFloat(row.importe_vta).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+                        numero_comprobante: parseFloat(row.numero_comprobante), // Mantener numérico
+                        importe_vta: parseFloat(row.importe_vta), // Mantener numérico
                     });
+    
+                    // Aplicar formato de miles y decimales a las celdas
+                    newRow.getCell(6).numFmt = '#,##0';  // Formato para número_comprobante (sin decimales)
+                    newRow.getCell(7).numFmt = '#,##0.00';  // Formato para importe_vta (con decimales)
                 });
     
                 // Pestaña 2: "Reporte Importe Fac Global"
@@ -549,23 +564,27 @@ const OtrosReportes = () => {
     
                 // Agregar datos a la segunda pestaña
                 facGlobalData.data.forEach((row) => {
-                    worksheetFacGlobal.addRow({
+                    const newRow = worksheetFacGlobal.addRow({
                         cef: row.cef,
                         fecha_vta: formatFecha(row.fecha_vta), // Convertimos a objeto Date
                         fecha_factura: formatFecha(row.fecha_factura), // Convertimos a objeto Date
-                        numero_comprobante: row.numero_comprobante,
+                        numero_comprobante: parseFloat(row.numero_comprobante), // Mantener numérico
                         REFID: row.REFID,
                         estatus: row.estatus,
-                        sub_total: parseFloat(row.sub_total).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+                        sub_total: parseFloat(row.sub_total), // Mantener numérico
                         descuento: row.descuento,
-                        importe_total: parseFloat(row.importe_total).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+                        importe_total: parseFloat(row.importe_total), // Mantener numérico
                         folio_factura: row.folio_factura,
                         uuid_global: row.uuid_global,
-                        fecha_expedicion: formatFecha(row.fecha_expedicion).toLocaleString(), // Convertimos a objeto Date
+                        fecha_expedicion: formatFecha(row.fecha_expedicion), // Convertimos a objeto Date
                         periodicidad: row.periodicidad,
                         mes_global: row.mes_global,
                         año_global: row.año_global,
                     });
+    
+                    // Aplicar formato de miles y decimales a las celdas
+                    newRow.getCell(7).numFmt = '#,##0.00';  // Formato para sub_total (con decimales)
+                    newRow.getCell(9).numFmt = '#,##0.00';  // Formato para importe_total (con decimales)
                 });
     
                 // Descargar el archivo Excel con las dos pestañas
@@ -584,6 +603,7 @@ const OtrosReportes = () => {
             Swal.fire('Error', 'Hubo un problema con la solicitud', 'error');
         }
     };
+    
     
     return (
         <div className="container mt-4">
