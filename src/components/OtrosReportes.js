@@ -587,7 +587,8 @@ const OtrosReportes = () => {
     
     return (
         <div className="container mt-4">
-            <h1>Otros Reportes</h1>
+            <h5>Revisión Ventas Cointech vs Factura Global</h5>
+            <br></br>
             <Form onSubmit={handleSubmit}>
                 <Row className="align-items-center">
                     <Col md={3}>

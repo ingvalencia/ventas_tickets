@@ -7,7 +7,7 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 
 function App() {
     return (
-        <Router basename="/diniz/GioValencia/ventas-tickets">
+        <Router basename="/diniz/ventas-tickets/">
             <Header />
             <div className="container">
                 <Routes>

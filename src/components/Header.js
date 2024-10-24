@@ -18,7 +18,7 @@ const Header = () => {
                             <FaTicketAlt className="me-1" /> Ventas Tickets CEF
                         </Nav.Link>
                         <Nav.Link as={Link} to="/otros-reportes" className="d-flex align-items-center"> {/* Cambia href a Link */}
-                            <FaFileAlt className="me-1" /> Otros Reportes
+                            <FaFileAlt className="me-1" /> Cointech vs Factura Global
                         </Nav.Link>
                     </Nav>
                 </Navbar.Collapse>

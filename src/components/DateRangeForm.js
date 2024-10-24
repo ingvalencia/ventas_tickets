@@ -3,6 +3,7 @@ import { Form, Button, Row, Col, Table } from 'react-bootstrap';
 import Select from 'react-select';
 import Swal from 'sweetalert2';
 import ReactPaginate from 'react-paginate';
+import { FaFileExcel } from 'react-icons/fa';
 import './customStyles.css'; // Para los estilos adicionales
 
 const DateRangeForm = () => {
@@ -13,7 +14,7 @@ const DateRangeForm = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [results, setResults] = useState([]);
     const [currentPage, setCurrentPage] = useState(0);
-    const itemsPerPage = 10;
+    const itemsPerPage = 50;
     const [searchTerm, setSearchTerm] = useState('');
 
     // Formatear fecha para YYYY-MM-DD
@@ -166,6 +167,8 @@ const DateRangeForm = () => {
     return (
         <>
             <Form onSubmit={handleSubmit}>
+            <h5>Revisión Ventas Tickets por CEF</h5>
+            <br></br>
                 <Row className="align-items-center">
                     <Col md={3}>
                         <Form.Group controlId="localSelect">
@@ -210,6 +213,7 @@ const DateRangeForm = () => {
             {results.length > 0 && (
                 <>
                     <Form.Group controlId="search">
+                        <br></br>
                         <Form.Label>Buscar</Form.Label>
                         <Form.Control
                             type="text"
@@ -219,22 +223,23 @@ const DateRangeForm = () => {
                         />
                     </Form.Group>
                     <p>Total de registros consultados: {filteredResults.length} registros</p>
-                    <Button variant="secondary" onClick={() => {
-                        Swal.fire({
-                            title: 'Seleccione el formato de descarga',
-                            showDenyButton: true,
-                            showCancelButton: true,
-                            confirmButtonText: 'CSV',
-                            denyButtonText: 'TXT',
-                        }).then((result) => {
-                            if (result.isConfirmed) {
-                                handleDownload('csv');
-                            } else if (result.isDenied) {
-                                handleDownload('txt');
-                            }
-                        });
-                    }}>
-                        Descargar Registros
+                    <Button variant="success" onClick={() => {
+                            Swal.fire({
+                                title: 'Seleccione el formato de descarga',
+                                showDenyButton: true,
+                                showCancelButton: true,
+                                confirmButtonText: 'CSV',
+                                denyButtonText: 'TXT',
+                            }).then((result) => {
+                                if (result.isConfirmed) {
+                                    handleDownload('csv');
+                                } else if (result.isDenied) {
+                                    handleDownload('txt');
+                                }
+                            });
+                        }}>
+                        <FaFileExcel size={20} style={{ marginRight: '8px' }} /> {/* Icono Excel */}
+                            Descargar Registos
                     </Button>
                 </>
             )}
@@ -248,9 +253,10 @@ const DateRangeForm = () => {
             ) : (
                 results.length > 0 && (
                     <>
-                        <Table striped bordered hover responsive className="mt-4">
+                    <Table striped bordered hover responsive className="mt-4">
                             <thead>
                                 <tr>
+                                    <th>#</th> {/* Columna nueva para el número de registro */}
                                     <th>Cef</th>
                                     <th>Fecha Vta</th>
                                     <th>Imp Vtas</th>
@@ -268,6 +274,7 @@ const DateRangeForm = () => {
                             <tbody>
                                 {currentResults.map((result, index) => (
                                     <tr key={index}>
+                                        <td>{index + 1}</td> {/* Mostrar el número de registro */}
                                         <td>{result.Cef}</td>
                                         <td>{formatFecha(result.Fecha_Vta)}</td>
                                         <td>{result.Imp_Vtas}</td>
@@ -284,6 +291,7 @@ const DateRangeForm = () => {
                                 ))}
                             </tbody>
                         </Table>
+
 
                         <ReactPaginate
                             previousLabel={"Anterior"}
