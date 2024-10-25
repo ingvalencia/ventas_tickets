@@ -672,7 +672,7 @@ const OtrosReportes = () => {
                 // Agregar los datos al archivo Excel
                 data.data.forEach((row) => {
                     worksheet.addRow({
-                        cef: row.cef,
+                        cef: row.Cef,
                         fecha_venta: formatFecha(row['Fecha Venta']),
                         numero_comprobante: row['Numero Comprobante Ticket'],
                         importe_venta: parseFloat(row['Imp. Venta']),
