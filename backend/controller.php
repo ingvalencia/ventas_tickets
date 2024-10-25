@@ -231,7 +231,7 @@ if ($tipo == 'obtener_locales') {
         -- Selección de las ventas desde el servidor vinculado
         SELECT vt.[cef], vt.[fecha], 
         (ISNULL(vt.[venta], 0) - ISNULL(vt.[ventaWeb], 0)) AS vtas_real,  
-        CAST(ISNULL(tm.impvta, 0) AS decimal(12, 2)) AS 'imp global', 
+        CAST(ISNULL(tm.impvta, 0) AS decimal(12, 2)) AS 'imp_global', 
         CAST(ISNULL((ISNULL(vt.[venta], 0) - ISNULL(vt.[ventaWeb], 0)) - ISNULL(tm.impvta, 0), 0) AS decimal(12, 2)) AS Diferencia 
         FROM [192.168.0.59].[GrupoDiniz].[dbo].[rtv_ventas] vt
         LEFT JOIN @tabvtas tm 
