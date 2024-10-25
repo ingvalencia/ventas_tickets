@@ -335,7 +335,32 @@ if ($tipo == 'obtener_locales') {
 
     $result = fetch_data($query, $mysqli);
     echo json_encode(["success" => 1, "data" => $result]);
+}elseif ($tipo == 'reporte_tickets_duplicados') {
+    $cef = $data['cef'];
+    $fecha = $data['fecha'];
+
+    $query = "
+        SELECT t0.[clocal] Cef
+              ,t0.[fecha] 'Fecha Venta'
+              ,t0.[numero_comprobante] 'Numero Comprobante Ticket'
+              ,t0.[importe] 'Imp. Venta'
+              ,'Ticket duplicado con Otra fecha' 'Observaciones'
+              ,t1.FechaTicket 'Fecha Ticket Anterior'
+              ,t1.Importe 'Imp. Anterior'
+          FROM [GSSAP2010].[dbo].[FA_POS] t0
+          LEFT JOIN [GSSAP2010].[dbo].[ADM_LogTickets] t1 
+                ON t1.Numero_Comprobante = t0.numero_comprobante 
+                AND t1.Clocal = t0.clocal
+          WHERE t0.clocal = '$cef' 
+                AND t0.fecha = '$fecha'
+                AND t0.numero_comprobante > 0 
+                AND t1.FechaTicket <> t0.fecha
+          ORDER BY t0.[numero_comprobante], t0.[fecha]";
+
+    $result = fetch_data($query, $mysqli);
+    echo json_encode(["success" => 1, "data" => $result]);
 }
+
 
 
 

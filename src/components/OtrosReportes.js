@@ -216,19 +216,22 @@ const OtrosReportes = () => {
 
       
       // Supongamos que el valor de `cef` está disponible en cada fila
-      const handleFechaClick = (fecha) => {
+      const handleFechaClick = (fecha, cef) => {
         Swal.fire({
             title: `Selecciona el tipo de reporte para la fecha: ${formatFecha(fecha)}`,
             html: `
                 <div style="display: flex; justify-content: space-around; margin-top: 20px;">
-                    <button id="ventaReal" class="swal2-confirm swal2-styled" style="background-color: #007bff; color: white; padding: 10px 20px; border-radius: 5px; font-size: 14px; display: flex; align-items: center; width: 180px;">
-                        <i class="fas fa-file-excel" style="margin-right: 10px;"></i> Reporte Venta Real Cointech
+                    <button id="ventaReal" class="swal2-confirm swal2-styled" style="background-color: #007bff; color: white; padding: 5px 10px; border-radius: 5px; font-size: 12px; display: flex; align-items: center; width: 140px;">
+                        <i class="fas fa-file-excel" style="margin-right: 5px;"></i> Reporte Venta Real Cointech
                     </button>
-                    <button id="importeFacGlobal" class="swal2-deny swal2-styled" style="background-color: #dc3545; color: white; padding: 10px 20px; border-radius: 5px; font-size: 14px; display: flex; align-items: center; width: 180px;">
-                        <i class="fas fa-file-excel" style="margin-right: 10px;"></i> Reporte Importe Fac Global
+                    <button id="importeFacGlobal" class="swal2-deny swal2-styled" style="background-color: #dc3545; color: white; padding: 5px 10px; border-radius: 5px; font-size: 12px; display: flex; align-items: center; width: 140px;">
+                        <i class="fas fa-file-excel" style="margin-right: 5px;"></i> Reporte Importe Fac Global
                     </button>
-                    <button id="ambos" class="swal2-cancel swal2-styled" style="background-color: #6c757d; color: white; padding: 10px 20px; border-radius: 5px; font-size: 14px; display: flex; align-items: center; width: 180px;">
-                        <i class="fas fa-file-excel" style="margin-right: 10px;"></i> Descargar Ambos
+                    <button id="ambos" class="swal2-cancel swal2-styled" style="background-color: #6c757d; color: white; padding: 5px 10px; border-radius: 5px; font-size: 12px; display: flex; align-items: center; width: 140px;">
+                        <i class="fas fa-file-excel" style="margin-right: 5px;"></i> Descargar Ambos
+                    </button>
+                    <button id="duplicados" class="swal2-styled" style="background-color: #ff9933; color: white; padding: 5px 10px; border-radius: 5px; font-size: 12px; display: flex; align-items: center; width: 140px;">
+                        <i class="fas fa-file-excel" style="margin-right: 5px;"></i> Reporte Tickets Duplicados
                     </button>
                 </div>
             `,
@@ -236,18 +239,21 @@ const OtrosReportes = () => {
             width: '600px',
             didOpen: () => {
                 document.getElementById('ventaReal').addEventListener('click', () => {
-                    handleDownloadCointechReport('AAA', formatFecha(fecha)); // Reporte Venta Real Cointech
+                    handleDownloadCointechReport(cef, formatFecha(fecha)); // Reporte Venta Real Cointech
                 });
                 document.getElementById('importeFacGlobal').addEventListener('click', () => {
-                    handleDownloadImporteFacGlobalReport('AAA', formatFecha(fecha)); // Aquí llamamos al nuevo reporte
+                    handleDownloadImporteFacGlobalReport(cef, formatFecha(fecha)); // Reporte Importe Fac Global
                 });
                 document.getElementById('ambos').addEventListener('click', () => {
-                    handleDownloadBothReports('AAA', formatFecha(fecha)); // Pasar el valor correcto de CEF y fecha
+                    handleDownloadBothReports(cef, formatFecha(fecha)); // Descargar Ambos
                 });
-                
+                document.getElementById('duplicados').addEventListener('click', () => {
+                    handleDownloadDuplicadosReport(cef, formatFecha(fecha)); // Reporte Tickets Duplicados
+                });
             }
         });
     };
+    
     
     
     //Eventos de descarga:
@@ -603,6 +609,91 @@ const OtrosReportes = () => {
             Swal.fire('Error', 'Hubo un problema con la solicitud', 'error');
         }
     };
+
+    const handleDownloadDuplicadosReport = async (cef, fecha) => {
+        Swal.fire({
+            title: 'Procesando...',
+            text: 'Por favor, espere mientras se genera el archivo.',
+            allowOutsideClick: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+    
+        try {
+            const response = await fetch('https://diniz.com.mx/diniz/servicios/services/ventas-tickets/controller.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    tipo: 'reporte_tickets_duplicados', // Tipo de reporte nuevo
+                    cef: cef,
+                    fecha: fecha,
+                }),
+            });
+    
+            const data = await response.json();
+    
+            if (data.success === 1 && data.data.length > 0) {
+                // Crear el archivo Excel
+                const workbook = new ExcelJS.Workbook();
+                const worksheet = workbook.addWorksheet('Reporte Tickets Duplicados');
+    
+                // Definir las columnas
+                worksheet.columns = [
+                    { header: 'CEF', key: 'cef', width: 15 },
+                    { header: 'Fecha Venta', key: 'fecha_venta', width: 15 },
+                    { header: 'Numero Comprobante Ticket', key: 'numero_comprobante', width: 20 },
+                    { header: 'Imp. Venta', key: 'importe_venta', width: 15 },
+                    { header: 'Observaciones', key: 'observaciones', width: 30 },
+                    { header: 'Fecha Ticket Anterior', key: 'fecha_ticket_anterior', width: 15 },
+                    { header: 'Imp. Anterior', key: 'importe_anterior', width: 15 },
+                ];
+    
+                // Aplicar estilo a los encabezados
+                worksheet.getRow(1).eachCell((cell) => {
+                    cell.fill = {
+                        type: 'pattern',
+                        pattern: 'solid',
+                        fgColor: { argb: '0000FF' }, // Fondo azul
+                    };
+                    cell.font = { color: { argb: 'FFFFFF' }, bold: true }; // Texto blanco y en negritas
+                    cell.alignment = { horizontal: 'center' }; // Centrado
+                });
+    
+                // Agregar los datos al archivo Excel
+                data.data.forEach((row) => {
+                    worksheet.addRow({
+                        cef: row.cef,
+                        fecha_venta: formatFecha(row['Fecha Venta']),
+                        numero_comprobante: row['Numero Comprobante Ticket'],
+                        importe_venta: parseFloat(row['Imp. Venta']),
+                        observaciones: row.Observaciones,
+                        fecha_ticket_anterior: formatFecha(row['Fecha Ticket Anterior']),
+                        importe_anterior: parseFloat(row['Imp. Anterior']),
+                    });
+                });
+    
+                // Generar y descargar el archivo
+                const buffer = await workbook.xlsx.writeBuffer();
+                const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+                saveAs(blob, `reporte_tickets_duplicados_${cef}_${fecha}.xlsx`);
+    
+                Swal.close();
+                Swal.fire('Éxito', 'El archivo ha sido descargado', 'success');
+            } else {
+                // Si no hay datos
+                Swal.close();
+                Swal.fire('Sin información', 'No hay datos para esta fecha y CEF.', 'info');
+            }
+        } catch (error) {
+            // En caso de error en la solicitud
+            Swal.close();
+            Swal.fire('Error', 'Hubo un problema con la solicitud', 'error');
+        }
+    };
+    
     
     
     return (
