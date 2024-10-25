@@ -169,10 +169,17 @@ const OtrosReportes = () => {
             const row = worksheet.addRow({
                 cef: result.cef,
                 fecha: formatFecha(result.fecha),
-                vtas_real: parseFloat(result.vtas_real), // Guardar como número
-                imp_global: parseFloat(result.imp_global), // Guardar como número
-                Diferencia: parseFloat(result.Diferencia), // Guardar como número
+                vtas_real: !isNaN(parseFloat(result.vtas_real)) && result.vtas_real !== null
+                    ? parseFloat(result.vtas_real)
+                    : 0.00,  // Si es NaN o null, poner 0.00
+                imp_global: !isNaN(parseFloat(result.imp_global)) && result.imp_global !== null
+                    ? parseFloat(result.imp_global)
+                    : 0.00,  // Si es NaN o null, poner 0.00
+                Diferencia: !isNaN(parseFloat(result.Diferencia)) && result.Diferencia !== null
+                    ? parseFloat(result.Diferencia)
+                    : 0.00  // Si es NaN o null, poner 0.00
             });
+            
     
             // Aplicar formato numérico con comas y dos decimales a las columnas numéricas
             row.getCell(3).numFmt = '#,##0.00'; // Formato para vtas_real
@@ -825,7 +832,10 @@ const OtrosReportes = () => {
                                         }}
                                     >
                                         
-                                        {parseFloat(result.imp_global).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                        {!isNaN(parseFloat(result.imp_global)) && result.imp_global !== null
+                                        ? parseFloat(result.imp_global).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                                        : '0.00'}
+
                                     </td>
                                     <td
                                         style={{
@@ -837,7 +847,10 @@ const OtrosReportes = () => {
                                         }}
                                     >
                                        
-                                        {parseFloat(result.Diferencia).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                       {!isNaN(parseFloat(result.Diferencia)) && result.Diferencia !== null
+                                        ? parseFloat(result.Diferencia).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                                        : '0.00'}
+
                                         
                                     </td>
                                 </tr>

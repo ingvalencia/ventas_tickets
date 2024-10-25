@@ -230,9 +230,9 @@ if ($tipo == 'obtener_locales') {
 
         -- Selección de las ventas desde el servidor vinculado
         SELECT vt.[cef], vt.[fecha], 
-            CAST((vt.[venta] - vt.[ventaWeb]) AS decimal(12, 2)) AS vtas_real, 
-            CAST(tm.impvta AS decimal(12, 2)) AS imp_global, 
-            CAST((vt.[venta] - vt.[ventaWeb]) - tm.impvta AS decimal(12, 2)) AS Diferencia
+        (ISNULL(vt.[venta], 0) - ISNULL(vt.[ventaWeb], 0)) AS vtas_real,  
+        CAST(ISNULL(tm.impvta, 0) AS decimal(12, 2)) AS 'imp global', 
+        CAST(ISNULL((ISNULL(vt.[venta], 0) - ISNULL(vt.[ventaWeb], 0)) - ISNULL(tm.impvta, 0), 0) AS decimal(12, 2)) AS Diferencia 
         FROM [192.168.0.59].[GrupoDiniz].[dbo].[rtv_ventas] vt
         LEFT JOIN @tabvtas tm 
             ON tm.cef = vt.cef COLLATE Modern_Spanish_CI_AS 
