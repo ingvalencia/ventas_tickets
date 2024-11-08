@@ -122,4 +122,38 @@ thead th {
     width: 100%; /* Ocupa el ancho completo del contenedor */
 }
 
+.custom-button {
+    font-size: 1.2rem;
+    width: 280px; /* Ancho fijo */
+    height: 100px; /* Alto fijo */
+    padding: 12px;
+    font-weight: bold;
+    color: white;
+    border: none;
+    border-radius: 16px;
+    background: linear-gradient(135deg, #FFC107, #FF9800); /* Gradiente de amarillo */
+    transition: transform 0.3s, box-shadow 0.3s, background 0.3s;
+    box-shadow: 0px 6px 15px rgba(0, 0, 0, 0.3); /* Sombra */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.custom-button-info {
+    background: linear-gradient(135deg, #00BCD4, #03A9F4); /* Gradiente de azul */
+}
+
+.custom-button:hover {
+    transform: scale(1.05); /* Efecto de agrandamiento */
+    box-shadow: 0px 8px 20px rgba(0, 0, 0, 0.4); /* Sombra más pronunciada */
+    background-position: right center; /* Cambia la posición del gradiente para el efecto */
+}
+
+.custom-button-white {
+    color: white !important;
+}
+
+
+
+
 

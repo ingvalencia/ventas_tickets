@@ -359,7 +359,258 @@ if ($tipo == 'obtener_locales') {
 
     $result = fetch_data($query, $mysqli);
     echo json_encode(["success" => 1, "data" => $result]);
+}elseif ($tipo == 'consultar_carga_global') {
+    // Validar los parámetros recibidos desde el frontend
+    if (!isset($data['cef']) || !isset($data['feci']) || !isset($data['fecf']) || !isset($data['page']) || !isset($data['pageSize'])) {
+        echo json_encode(["success" => 0, "error" => "Parámetros faltantes: cef, feci, fecf, page o pageSize"]);
+        exit;
+    }
+
+    // Asignar los valores enviados por el frontend
+    $cef = $data['cef'];
+    $fechaInicial = $data['feci'];
+    $fechaFinal = $data['fecf'];
+    $page = (int)$data['page'];
+    $pageSize = (int)$data['pageSize'];
+    $offset = ($page - 1) * $pageSize;
+
+    // Conectar al servidor SQL Server
+    $mysqli = mssql_connect($sqlsrv_server, $sqlsrv_username, $sqlsrv_password);
+    if (!$mysqli) {
+        echo json_encode(["success" => 0, "error" => "Conexión fallida a SQL Server en la base de datos principal"]);
+        exit;
+    }
+
+    if (!mssql_select_db($sqlsrv_database, $mysqli)) {
+        echo json_encode(["success" => 0, "error" => "No se pudo seleccionar la base de datos en el servidor principal"]);
+        exit;
+    }
+
+    // Establecer las opciones ANSI_NULLS y ANSI_WARNINGS
+    mssql_query("SET ANSI_NULLS ON", $mysqli);
+    mssql_query("SET ANSI_WARNINGS ON", $mysqli);
+
+    // Construir la consulta base con el filtro de fechas
+    $baseQuery = "FROM [COINTECH_DB_PRUEBAS].[dbo].[Tickets_cs_facturacion]
+                  WHERE Fecha_factura BETWEEN '$fechaInicial' AND '$fechaFinal'";
+
+    // Agregar el filtro de SERIE solo si $cef no es "TODOS"
+    if ($cef !== "TODOS") {
+        $baseQuery .= " AND SERIE = '$cef'";
+    }
+
+    // Consulta para obtener el número total de registros que cumplen los criterios
+    $countQuery = "SELECT COUNT(*) AS total " . $baseQuery;
+    $countResult = fetch_data($countQuery, $mysqli);
+    if (!$countResult) {
+        echo json_encode(["success" => 0, "error" => "Error al obtener el total de registros"]);
+        exit;
+    }
+    $total = $countResult[0]['total'];
+
+    // Consulta principal para obtener los datos paginados y ordenados
+    $query = "SELECT *
+              $baseQuery
+              ORDER BY SERIE, Fecha_factura
+              OFFSET $offset ROWS FETCH NEXT $pageSize ROWS ONLY";
+              
+    $result = fetch_data($query, $mysqli);
+    if ($result === false) {
+        echo json_encode(["success" => 0, "error" => "Error al ejecutar la consulta"]);
+        exit;
+    }
+
+    // Enviar los datos paginados junto con el total de registros
+    echo json_encode([
+        "success" => 1,
+        "data" => $result,
+        "total" => $total // Enviar el total de registros para cálculo de paginación en frontend
+    ]);
+
+    // Cerrar la conexión a SQL Server
+    mssql_close($mysqli);
+}elseif ($tipo == 'descargar_carga_global') {
+    // Validar los parámetros recibidos desde el frontend
+    if (!isset($data['cef']) || !isset($data['feci']) || !isset($data['fecf']) || !isset($data['start']) || !isset($data['limit'])) {
+        echo json_encode(["success" => 0, "error" => "Parámetros faltantes: cef, feci, fecf, start o limit"]);
+        exit;
+    }
+
+    // Asignar los valores enviados por el frontend
+    $cef = $data['cef'];
+    $fechaInicial = $data['feci'];
+    $fechaFinal = $data['fecf'];
+    $start = (int)$data['start'];
+    $limit = (int)$data['limit'];
+
+    // Consulta para obtener los datos en un rango
+    $query = "SELECT *
+              FROM [COINTECH_DB_PRUEBAS].[dbo].[Tickets_cs_facturacion]
+              WHERE Fecha_factura BETWEEN '$fechaInicial' AND '$fechaFinal'
+              " . ($cef !== "TODOS" ? " AND SERIE = '$cef'" : "") . "
+              ORDER BY Fecha_factura
+              OFFSET $start ROWS FETCH NEXT $limit ROWS ONLY";
+    $result = fetch_data($query, $mysqli);
+
+    if ($result === false) {
+        echo json_encode(["success" => 0, "error" => "Error al ejecutar la consulta para la descarga"]);
+        exit;
+    }
+
+    // Enviar los datos en partes
+    echo json_encode([
+        "success" => 1,
+        "data" => $result
+    ]);
+
+    mssql_close($mysqli);
 }
+//COLA
+if (isset($_POST['tipo']) && $_POST['tipo'] === 'subir_reporte_ticket') {
+    echo "Iniciando el proceso de carga de datos.\n";
+
+    // Verificar que el archivo se haya subido correctamente
+    if (!isset($_FILES['archivo']) || $_FILES['archivo']['error'] !== UPLOAD_ERR_OK) {
+        echo json_encode(["success" => 0, "error" => "No se recibió el archivo o ocurrió un error en la subida"]);
+        exit;
+    }
+
+    // Verificar que el archivo sea un CSV
+    $nombreArchivo = $_FILES['archivo']['name'];
+    if (pathinfo($nombreArchivo, PATHINFO_EXTENSION) !== 'csv') {
+        echo json_encode(["success" => 0, "error" => "El archivo debe estar en formato CSV"]);
+        exit;
+    }
+
+    // Definir la ruta de destino donde se guardará el archivo temporalmente
+    $rutaDestino = '/var/www/html/diniz/servicios/services/ventas-tickets/excel/' . $nombreArchivo;
+    if (!move_uploaded_file($_FILES['archivo']['tmp_name'], $rutaDestino)) {
+        echo json_encode(["success" => 0, "error" => "Error al mover el archivo a la carpeta destino: $rutaDestino"]);
+        exit;
+    }
+
+    // Abrir el archivo CSV
+    $handle = fopen($rutaDestino, 'r');
+    if ($handle === false) {
+        echo json_encode(["success" => 0, "error" => "Error al abrir el archivo CSV en la ubicación $rutaDestino"]);
+        exit;
+    }
+
+    // Leer los encabezados
+    $encabezados = fgetcsv($handle);
+    if ($encabezados === false) {
+        echo json_encode(["success" => 0, "error" => "Error al leer los encabezados del archivo CSV"]);
+        fclose($handle);
+        exit;
+    }
+
+    $loteRegistros = [];
+    $registrosPorLote = 1000;  // Tamaño del lote
+    $procesados = 0;
+    $errores = 0;
+
+    // Procesar cada fila del archivo CSV
+    while (($fila = fgetcsv($handle)) !== false) {
+        $datos = array_combine($encabezados, $fila);
+
+        // Preparar datos adicionales
+        $datos['Fecha_vta'] = date('Y-m-d', strtotime($datos['FCH/HR VENTA']));
+        $datos['Fecha_factura'] = date('Y-m-d', strtotime($datos['FECHA expedición Factura Global (Si existe)']));
+        $datos['numero_comprobante'] = (strlen($datos['SERIE']) === 3)
+            ? substr($datos['REFID'], 4, 10)
+            : substr($datos['REFID'], 6, 7);
+
+        // Añadir el registro al lote
+        $loteRegistros[] = $datos;
+
+        // Cuando el lote alcance el tamaño especificado, procesarlo
+        if (count($loteRegistros) === $registrosPorLote) {
+            if (!insertarLote($loteRegistros)) {
+                $errores += count($loteRegistros);
+            } else {
+                $procesados += count($loteRegistros);
+            }
+            // Limpiar el lote actual
+            $loteRegistros = [];
+        }
+    }
+
+    // Procesar cualquier registro restante
+    if (count($loteRegistros) > 0) {
+        if (!insertarLote($loteRegistros)) {
+            $errores += count($loteRegistros);
+        } else {
+            $procesados += count($loteRegistros);
+        }
+    }
+
+    // Cerrar el archivo
+    fclose($handle);
+
+    // Eliminar el archivo CSV después de procesarlo
+    if (file_exists($rutaDestino)) {
+        unlink($rutaDestino);
+    }
+
+    // Respuesta al cliente
+    echo json_encode([
+        "success" => 1, 
+        "message" => "Archivo procesado. Registros procesados: $procesados, Errores: $errores",
+    ]);
+}
+
+// Función para insertar un lote de registros
+function insertarLote($loteRegistros) {
+    $valores = [];
+
+    foreach ($loteRegistros as $datos) {
+        $valores[] = "(
+            '" . $datos['FCH/HR VIGENCIA'] . "',
+            '" . $datos['FCH/HR VENTA'] . "',
+            '" . $datos['FCH/HR RECEPCION'] . "',
+            '" . $datos['REFID'] . "',
+            '" . $datos['ESTATUS'] . "',
+            '" . $datos['SERIE'] . "',
+            '" . $datos['SUBTOTAL'] . "',
+            '" . $datos['DESCUENTO'] . "',
+            '" . $datos['IVA'] . "',
+            '" . $datos['IEPS TRASLADADO 0.06'] . "',
+            '" . $datos['IEPS TRASLADADO 0.08'] . "',
+            '" . $datos['IEPS TRASLADADO 0.265'] . "',
+            '" . $datos['IEPS TRASLADADO 0.53'] . "',
+            '" . $datos['OTRO IEPS'] . "',
+            '" . $datos['TOTAL'] . "',
+            '" . $datos['Folio Factura Ingreso'] . "',
+            '" . $datos['UUID Factura Ingreso'] . "',
+            '" . $datos['FECHA expedición Factura Ingreso'] . "',
+            '" . $datos['Folio Factura Egreso (Si existe)'] . "',
+            '" . $datos['UUID Factura Egreso (Si existe)'] . "',
+            '" . $datos['FECHA expedición Factura Egreso (Si existe)'] . "',
+            '" . $datos['Folio Global (Si existe)'] . "',
+            '" . $datos['UUID Global (Si existe)'] . "',
+            '" . $datos['FECHA expedición Factura Global (Si existe)'] . "',
+            '" . $datos['Periodicidad Global (Si existe)'] . "',
+            '" . $datos['Mes Global (Si existe)'] . "',
+            '" . $datos['Año Global (Si existe)'] . "',
+            CAST('" . $datos['Fecha_vta'] . "' AS DATE),
+            CAST('" . $datos['Fecha_factura'] . "' AS DATE),
+            CAST('" . $datos['numero_comprobante'] . "' AS INT)
+        )";
+    }
+
+    $query = "INSERT INTO COINTECH_DB_PRUEBAS.dbo.Tickets_cs_facturacion
+        ([fecha_hora_vigencia], [fecha_hora_vta], [fecha_recepcion], [REFID], [ESTATUS], [SERIE], [SUBTOTAL], [DESCUENTO], [IVA], 
+        [ieps_trasladp_6], [ieps_traslado_8], [ieps_tralado_0 265], [ieps_tralado_0 53], [otros_ieps], [TOTAL], [Folio_Fctura_Ingreso], 
+        [UUI_factura_Ingreso], [fecha_expedición_Factura_Ingreso], [Folio_Factura_egreso_Si_existe], [uuid_Factura_Egreso_Si_existe], 
+        [fecha_expedición_Factura_Egreso_Si_existe], [Folio_Global_Si_existe], [uuid_Global_Si_ existe], 
+        [fecha_expedición_Factura_Global], [Periodicidad_Global], [Mes_Global], [Año_Global], 
+        [Fecha_vta], [Fecha_factura], [numero_comprobante])
+        VALUES " . implode(", ", $valores);
+
+    return mssql_query($query);
+}
+
+
 
 
 
