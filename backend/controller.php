@@ -504,7 +504,7 @@ if ($tipo == 'obtener_locales') {
     mssql_query("SET ANSI_WARNINGS ON", $mysqli);
 
     // Construir la consulta base con el filtro de fechas
-    $baseQuery = "FROM [COINTECH_DB_PRUEBAS].[dbo].[tickets_db_cointech_cef]
+    $baseQuery = "FROM [COINTECH_DB].[dbo].[tickets_db_cointech_cef]
                   WHERE fecha BETWEEN '$fechaInicial' AND '$fechaFinal'
                   AND (CAST(IMPORTE AS DECIMAL(12, 2)) < 0 OR CAST(NUMERO_COMPROBANTE AS INT) = 0)";
 

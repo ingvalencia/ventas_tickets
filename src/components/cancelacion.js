@@ -115,6 +115,44 @@ const Cancelacion = () => {
             didOpen: () => Swal.showLoading(),
         });
     
+        let allData = [];
+        let page = 0;
+        let hasMoreData = true;
+    
+        // Continuar solicitando datos hasta que ya no haya más
+        while (hasMoreData) {
+            try {
+                const response = await fetch('https://diniz.com.mx/diniz/servicios/services/ventas-tickets/controller.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        tipo: 'consultar_cancelaciones',
+                        cef,
+                        feci: fechaInicial,
+                        fecf: fechaFinal,
+                        page: page + 1, // La paginación del backend empieza desde 1
+                        pageSize: itemsPerPage,
+                    }),
+                });
+    
+                const data = await response.json();
+                if (data.success === 1) {
+                    allData = allData.concat(data.data); // Concatenar datos de cada página
+                    hasMoreData = data.data.length === itemsPerPage; // Continuar si se obtienen registros completos
+                    page++; // Ir a la siguiente página
+                } else {
+                    Swal.close();
+                    Swal.fire({ icon: 'error', title: 'Error', text: 'Error al obtener todos los registros para la descarga.' });
+                    return;
+                }
+            } catch (error) {
+                Swal.close();
+                Swal.fire({ icon: 'error', title: 'Error', text: 'Error al realizar la descarga de datos.' });
+                return;
+            }
+        }
+    
+        // Crear el archivo Excel con todos los datos recopilados
         const workbook = new ExcelJS.Workbook();
         const worksheet = workbook.addWorksheet('Cancelaciones');
         worksheet.columns = [
@@ -134,7 +172,7 @@ const Cancelacion = () => {
             cell.alignment = { horizontal: 'center' };
         });
     
-        results.forEach((result, index) => {
+        allData.forEach((result, index) => {
             worksheet.addRow({
                 CEF: result.CEF,
                 FECHA: formatFecha(result.FECHA),
@@ -158,6 +196,7 @@ const Cancelacion = () => {
             Swal.fire('Error', 'Hubo un problema al generar el archivo.', 'error');
         }
     };
+    
 
     return (
         <div className="container mt-4">
