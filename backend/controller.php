@@ -472,7 +472,80 @@ if ($tipo == 'obtener_locales') {
     ]);
 
     mssql_close($mysqli);
+}elseif ($tipo == 'consultar_cancelaciones') {
+    // Validar los parámetros recibidos desde el frontend
+    if (!isset($data['cef']) || !isset($data['feci']) || !isset($data['fecf']) || !isset($data['page']) || !isset($data['pageSize'])) {
+        echo json_encode(["success" => 0, "error" => "Parámetros faltantes: cef, feci, fecf, page o pageSize"]);
+        exit;
+    }
+
+    // Asignar los valores enviados por el frontend
+    $cef = $data['cef'];
+    $fechaInicial = $data['feci'];
+    $fechaFinal = $data['fecf'];
+    $page = (int)$data['page'];
+    $pageSize = (int)$data['pageSize'];
+    $offset = ($page - 1) * $pageSize;
+
+    // Conectar al servidor SQL Server
+    $mysqli = mssql_connect($sqlsrv_server, $sqlsrv_username, $sqlsrv_password);
+    if (!$mysqli) {
+        echo json_encode(["success" => 0, "error" => "Conexión fallida a SQL Server en la base de datos principal"]);
+        exit;
+    }
+
+    if (!mssql_select_db($sqlsrv_database, $mysqli)) {
+        echo json_encode(["success" => 0, "error" => "No se pudo seleccionar la base de datos en el servidor principal"]);
+        exit;
+    }
+
+    // Establecer las opciones ANSI_NULLS y ANSI_WARNINGS
+    mssql_query("SET ANSI_NULLS ON", $mysqli);
+    mssql_query("SET ANSI_WARNINGS ON", $mysqli);
+
+    // Construir la consulta base con el filtro de fechas
+    $baseQuery = "FROM [COINTECH_DB_PRUEBAS].[dbo].[tickets_db_cointech_cef]
+                  WHERE fecha BETWEEN '$fechaInicial' AND '$fechaFinal'
+                  AND (CAST(IMPORTE AS DECIMAL(12, 2)) < 0 OR CAST(NUMERO_COMPROBANTE AS INT) = 0)";
+
+    // Agregar el filtro de CEF solo si no es "TODOS"
+    if ($cef !== "TODOS") {
+        $baseQuery .= " AND CEF = '$cef'";
+    }
+
+    // Consulta para obtener el número total de registros que cumplen los criterios
+    $countQuery = "SELECT COUNT(*) AS total " . $baseQuery;
+    $countResult = fetch_data($countQuery, $mysqli);
+    if (!$countResult) {
+        echo json_encode(["success" => 0, "error" => "Error al obtener el total de registros"]);
+        exit;
+    }
+    $total = $countResult[0]['total'];
+
+    // Consulta principal para obtener los datos paginados y ordenados
+    $query = "SELECT CEF, FECHA, ID_TRANSACCION, FORMA_PAGO, NUMERO_TERMINAL, TIPO, NUMERO_COMPROBANTE, 
+                     CAST(IMPORTE AS DECIMAL(12, 2)) AS Importe
+              $baseQuery
+              ORDER BY CEF, FECHA
+              OFFSET $offset ROWS FETCH NEXT $pageSize ROWS ONLY";
+
+    $result = fetch_data($query, $mysqli);
+    if ($result === false) {
+        echo json_encode(["success" => 0, "error" => "Error al ejecutar la consulta"]);
+        exit;
+    }
+
+    // Enviar los datos paginados junto con el total de registros
+    echo json_encode([
+        "success" => 1,
+        "data" => $result,
+        "total" => $total // Enviar el total de registros para cálculo de paginación en frontend
+    ]);
+
+    // Cerrar la conexión a SQL Server
+    mssql_close($mysqli);
 }
+
 //INICIO
 elseif (isset($_POST['tipo']) && $_POST['tipo'] === 'subir_reporte_ticket_fragmento') {
     $nombreArchivo = $_FILES['archivo']['name'];
@@ -538,7 +611,7 @@ elseif (isset($_POST['tipo']) && $_POST['tipo'] === 'subir_reporte_ticket_fragme
     }
 
     // Verificar si existen registros dentro del rango de fechas
-    $queryCount = "SELECT COUNT(*) AS count FROM COINTECH_DB_PRUEBAS.dbo.Tickets_cs_facturacion 
+    $queryCount = "SELECT COUNT(*) AS count FROM COINTECH_DB.dbo.Tickets_cs_facturacion 
                    WHERE CAST(Fecha_vta AS DATE) BETWEEN '$fechaMinima' AND '$fechaMaxima'";
     $resultCount = mssql_query($queryCount);
     $countRow = mssql_fetch_assoc($resultCount);
@@ -546,7 +619,7 @@ elseif (isset($_POST['tipo']) && $_POST['tipo'] === 'subir_reporte_ticket_fragme
 
     if ($count > 0) {
         // Si existen registros, eliminarlos antes de insertar
-        $queryDelete = "DELETE FROM COINTECH_DB_PRUEBAS.dbo.Tickets_cs_facturacion 
+        $queryDelete = "DELETE FROM COINTECH_DB.dbo.Tickets_cs_facturacion 
                         WHERE CAST(Fecha_vta AS DATE) BETWEEN '$fechaMinima' AND '$fechaMaxima'";
         mssql_query($queryDelete);
         $debug_message .= "Registros eliminados en el rango de fechas $fechaMinima a $fechaMaxima\n";
@@ -645,7 +718,7 @@ function insertarLote($loteRegistros) {
             CAST('" . $datos['numero_comprobante'] . "' AS INT)
         )";
     }
-    $query = "INSERT INTO COINTECH_DB_PRUEBAS.dbo.Tickets_cs_facturacion
+    $query = "INSERT INTO COINTECH_DB.dbo.Tickets_cs_facturacion
         ([fecha_hora_vigencia], [fecha_hora_vta], [fecha_recepcion], [REFID], [ESTATUS], [SERIE], [SUBTOTAL], [DESCUENTO], [IVA], 
         [ieps_trasladp_6], [ieps_traslado_8], [ieps_tralado_0 265], [ieps_tralado_0 53], [otros_ieps], [TOTAL], [Folio_Fctura_Ingreso], 
         [UUI_factura_Ingreso], [fecha_expedición_Factura_Ingreso], [Folio_Factura_egreso_Si_existe], [uuid_Factura_Egreso_Si_existe], 
@@ -658,11 +731,8 @@ function insertarLote($loteRegistros) {
     $debug_message .= "Resultado de la inserción: " . ($result ? "Éxito\n" : "Fallo\n");
     return $result;
 }
-
-
-
-
 //FIN
+
 
 
 

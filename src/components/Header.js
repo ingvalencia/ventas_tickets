@@ -39,6 +39,9 @@ const Header = () => {
                             <option value="/carga-globales"> 
                                 Carga Ticket Facturas Globales
                             </option>
+                            <option value="/cancelaciones"> 
+                                Cancelaciones y numero comprobante cero
+                            </option>
                         </Form.Select>
                     </Nav>
                 </Navbar.Collapse>
