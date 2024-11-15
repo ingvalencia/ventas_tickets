@@ -72,7 +72,7 @@ const CargaGlobal = () => {
     };
 
     
-//COLA INICIO
+    //INICIO
     const handleSubirClick = () => {
         Swal.fire({
             title: 'Subir Reporte de Tickets',
@@ -96,66 +96,86 @@ const CargaGlobal = () => {
                 confirmButton: 'btn btn-primary',
                 cancelButton: 'btn btn-outline-secondary'
             },
-            buttonsStyling: false,  // Desactiva el estilo por defecto de los botones de SweetAlert2
+            buttonsStyling: false,
             preConfirm: (archivo) => {
                 if (!archivo) {
                     Swal.showValidationMessage('Por favor, selecciona un archivo');
                     return false;
                 }
-
+    
                 const MAX_FILE_SIZE = 1 * 1024 * 1024 * 1024; // Tamaño máximo de archivo: 1 GB
-
+    
                 if (archivo.size > MAX_FILE_SIZE) {
                     Swal.showValidationMessage('El archivo es demasiado grande. Máximo 1 GB');
                     return false;
                 }
-
-                // Convertir el archivo a CSV y enviarlo al servidor
-                return convertirYSubirArchivo(archivo);
+    
+                // Mostrar alerta de carga
+                Swal.fire({
+                    title: 'Cargando archivo...',
+                    text: 'Por favor, espera mientras se procesa el archivo.',
+                    allowOutsideClick: false,
+                    allowEscapeKey: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+    
+                // Iniciar el procesamiento y carga del archivo en fragmentos
+                return procesarYSubirArchivoEnFragmentos(archivo);
             },
             icon: 'info',
         });
     };
 
-
-
-    // Función para convertir un archivo XLSX a CSV y luego subirlo al servidor
-    const convertirYSubirArchivo = async (archivo) => {
-
-        Swal.fire({
-            title: 'Procesando...',
-            text: 'Por favor, espera mientras se convierte y sube el archivo.',
-            allowOutsideClick: false,
-            didOpen: () => {
-                Swal.showLoading();
+    // Función para dividir el archivo en fragmentos y subir cada fragmento al backend
+    const procesarYSubirArchivoEnFragmentos = async (archivo) => {
+        const CHUNK_SIZE = 10000; // Tamaño del fragmento en número de registros
+        const data = await archivo.arrayBuffer();
+        const workbook = XLSX.read(data, { type: 'array' });
+        const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+    
+        // Convertir la hoja a JSON
+        const jsonData = XLSX.utils.sheet_to_json(worksheet);
+        const totalRecords = jsonData.length;
+        const totalChunks = Math.ceil(totalRecords / CHUNK_SIZE);
+    
+        let processedRecords = 0;
+    
+        for (let i = 0; i < totalChunks; i++) {
+            const chunkData = jsonData.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
+    
+            // Crear un Blob del fragmento JSON y enviarlo al servidor
+            const csvBlob = new Blob([JSON.stringify(chunkData)], { type: 'application/json' });
+            const csvFile = new File([csvBlob], `reporte_fragmento_${i + 1}.json`, { type: 'application/json' });
+    
+            // Subir cada fragmento y verificar el progreso
+            const result = await subirFragmento(csvFile, i + 1, totalChunks);
+    
+            if (result && result.success) {
+                processedRecords += result.processed; // Acumula los registros procesados en cada fragmento
+            } else {
+                Swal.fire('Error', `Hubo un problema al subir el fragmento ${i + 1}`, 'error');
+                return;
             }
-        });
-
-        try {
-            // Leer el archivo como ArrayBuffer para trabajar con él
-            const data = await archivo.arrayBuffer(); 
-            const workbook = XLSX.read(data, { type: 'array' });
-            const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-
-            // Convertir la hoja a CSV
-            const csvData = XLSX.utils.sheet_to_csv(worksheet);
-            
-            // Crear un Blob del archivo CSV
-            const csvBlob = new Blob([csvData], { type: 'text/csv' });
-            const csvFile = new File([csvBlob], "reporte.csv", { type: 'text/csv' });
-
-            // Enviar el archivo CSV al backend
-            await subirArchivo(csvFile);
-        } catch (error) {
-            Swal.close();
-            Swal.fire('Error', 'Hubo un problema al convertir o subir el archivo', 'error');
+        }
+    
+        // Cerrar alerta de carga
+        Swal.close();
+    
+        // Verificación final del total de registros
+        if (processedRecords === totalRecords) {
+            Swal.fire('Éxito', `El archivo completo fue cargado exitosamente con ${processedRecords} registros.`, 'success');
+        } else {
+            Swal.fire('Advertencia', `Se esperaba cargar ${totalRecords} registros, pero solo se procesaron ${processedRecords}.`, 'warning');
         }
     };
 
-    const subirArchivo = async (archivo) => {
+    // Función para subir cada fragmento al servidor
+    const subirFragmento = async (archivo, fragmentoNumero, totalFragmentos) => {
         Swal.fire({
-            title: 'Procesando...',
-            text: 'Por favor, espere mientras se sube el archivo.',
+            title: `Subiendo fragmento ${fragmentoNumero} de ${totalFragmentos}`,
+            text: 'Por favor, espera...',
             allowOutsideClick: false,
             didOpen: () => {
                 Swal.showLoading();
@@ -164,7 +184,9 @@ const CargaGlobal = () => {
 
         const formData = new FormData();
         formData.append('archivo', archivo);
-        formData.append('tipo', 'subir_reporte_ticket');
+        formData.append('tipo', 'subir_reporte_ticket_fragmento');
+        formData.append('fragmentoNumero', fragmentoNumero);
+        formData.append('totalFragmentos', totalFragmentos);
 
         try {
             const response = await fetch('https://diniz.com.mx/diniz/servicios/services/ventas-tickets/controller.php', {
@@ -176,17 +198,21 @@ const CargaGlobal = () => {
                 throw new Error(`Error HTTP: ${response.status}`);
             }
 
-            const data = await response.text();
-            Swal.close();
-            Swal.fire('Respuesta del servidor', data, 'success');
+            const data = await response.json();
+            if (data.success !== 1) {
+                throw new Error(data.error || 'Error desconocido');
+            }
+
+            return data;
         } catch (error) {
             Swal.close();
-            Swal.fire('Error', `Hubo un problema al procesar el archivo: ${error.message}`, 'error');
+            console.error(`Error al procesar el fragmento ${fragmentoNumero}:`, error);
+            return null;
         }
     };
 
 
-    //COLA FIN
+    // FIN
    
 
     const handleRegresarClick = () => {

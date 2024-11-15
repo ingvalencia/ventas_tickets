@@ -1,10 +1,18 @@
 import React from 'react';
-import { Navbar, Container, Nav } from 'react-bootstrap';
-import { FaFileAlt, FaTicketAlt, FaFileUpload  } from 'react-icons/fa';
-
-import { Link } from 'react-router-dom'; 
+import { Navbar, Container, Nav, Form } from 'react-bootstrap';
+import { FaFileAlt, FaTicketAlt, FaFileUpload } from 'react-icons/fa';
+import { useNavigate, Link } from 'react-router-dom';
 
 const Header = () => {
+    const navigate = useNavigate();  // Hook para redirigir a las rutas
+
+    const handleSelectChange = (event) => {
+        const selectedValue = event.target.value;
+        if (selectedValue) {
+            navigate(selectedValue);  // Redirigir a la ruta seleccionada
+        }
+    };
+
     return (
         <Navbar style={{ backgroundColor: '#0d6efd' }} variant="dark" expand="lg" className="mb-4 p-3 shadow-sm">
             <Container>
@@ -15,15 +23,23 @@ const Header = () => {
                 <Navbar.Toggle aria-controls="navbarResponsive" />
                 <Navbar.Collapse id="navbarResponsive">
                     <Nav className="ms-auto">
-                        <Nav.Link as={Link} to="/" className="d-flex align-items-center"> 
-                            <FaTicketAlt className="me-1" /> Ventas Tickets CEF
-                        </Nav.Link>
-                        <Nav.Link as={Link} to="/otros-reportes" className="d-flex align-items-center"> 
-                            <FaFileAlt className="me-1" /> Cointech vs Factura Global
-                        </Nav.Link>
-                        <Nav.Link as={Link} to="/carga-globales" className="d-flex align-items-center"> 
-                            < FaFileUpload  className="me-1" /> Carga Ticket Facturas Globales
-                        </Nav.Link>
+                        {/* Convertimos los enlaces de navegación en un input select */}
+                        <Form.Select 
+                            aria-label="Selecciona una opción" 
+                            onChange={handleSelectChange} 
+                            className="ms-auto"
+                        >
+                            <option value="">Selecciona una opción</option>
+                            <option value="/"> 
+                                Ventas Tickets CEF
+                            </option>
+                            <option value="/otros-reportes"> 
+                                Cointech vs Factura Global
+                            </option>
+                            <option value="/carga-globales"> 
+                                Carga Ticket Facturas Globales
+                            </option>
+                        </Form.Select>
                     </Nav>
                 </Navbar.Collapse>
             </Container>

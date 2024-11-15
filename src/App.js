@@ -8,7 +8,7 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 
 function App() {
     return (
-        <Router basename="">
+        <Router basename="/diniz/ventas-tickets/">
             <Header />
             <div className="container">
                 <Routes>

@@ -51,6 +51,13 @@ if ($tipo == 'obtener_locales') {
     $query = "SELECT sigla, ipserver, rutadb, userdb, passdb FROM ADM_CEFS WHERE activo = 1";
     $locales = fetch_data($query, $mysqli);
 
+    // Modificar el valor de 'sigla' cuando sea 'MIM'
+    foreach ($locales as &$local) {  // Usamos referencia (&) para modificar el arreglo directamente
+        if ($local['sigla'] === 'MIM') {
+            $local['sigla'] = 'PBMIM';
+        }
+    }
+
     echo json_encode(["success" => 1, "locales" => $locales]);
 
 } elseif ($tipo == 'consultar_ventas') {
@@ -243,6 +250,7 @@ if ($tipo == 'obtener_locales') {
     ";
 
 
+    //print_r();exit($query);
     $result = fetch_data($query, $mysqli);
     echo json_encode(["success" => 1, "data" => $result]);
 
@@ -391,8 +399,8 @@ if ($tipo == 'obtener_locales') {
     mssql_query("SET ANSI_WARNINGS ON", $mysqli);
 
     // Construir la consulta base con el filtro de fechas
-    $baseQuery = "FROM [COINTECH_DB_PRUEBAS].[dbo].[Tickets_cs_facturacion]
-                  WHERE Fecha_factura BETWEEN '$fechaInicial' AND '$fechaFinal'";
+    $baseQuery = "FROM [COINTECH_DB].[dbo].[Tickets_cs_facturacion]
+                  WHERE Fecha_vta BETWEEN '$fechaInicial' AND '$fechaFinal'";
 
     // Agregar el filtro de SERIE solo si $cef no es "TODOS"
     if ($cef !== "TODOS") {
@@ -411,7 +419,7 @@ if ($tipo == 'obtener_locales') {
     // Consulta principal para obtener los datos paginados y ordenados
     $query = "SELECT *
               $baseQuery
-              ORDER BY SERIE, Fecha_factura
+              ORDER BY SERIE, Fecha_vta
               OFFSET $offset ROWS FETCH NEXT $pageSize ROWS ONLY";
               
     $result = fetch_data($query, $mysqli);
@@ -445,10 +453,10 @@ if ($tipo == 'obtener_locales') {
 
     // Consulta para obtener los datos en un rango
     $query = "SELECT *
-              FROM [COINTECH_DB_PRUEBAS].[dbo].[Tickets_cs_facturacion]
-              WHERE Fecha_factura BETWEEN '$fechaInicial' AND '$fechaFinal'
+              FROM [COINTECH_DB].[dbo].[Tickets_cs_facturacion]
+              WHERE Fecha_vta BETWEEN '$fechaInicial' AND '$fechaFinal'
               " . ($cef !== "TODOS" ? " AND SERIE = '$cef'" : "") . "
-              ORDER BY Fecha_factura
+              ORDER BY Fecha_vta
               OFFSET $start ROWS FETCH NEXT $limit ROWS ONLY";
     $result = fetch_data($query, $mysqli);
 
@@ -465,77 +473,112 @@ if ($tipo == 'obtener_locales') {
 
     mssql_close($mysqli);
 }
-//COLA
-if (isset($_POST['tipo']) && $_POST['tipo'] === 'subir_reporte_ticket') {
-    echo "Iniciando el proceso de carga de datos.\n";
-
-    // Verificar que el archivo se haya subido correctamente
-    if (!isset($_FILES['archivo']) || $_FILES['archivo']['error'] !== UPLOAD_ERR_OK) {
-        echo json_encode(["success" => 0, "error" => "No se recibió el archivo o ocurrió un error en la subida"]);
-        exit;
-    }
-
-    // Verificar que el archivo sea un CSV
+//INICIO
+elseif (isset($_POST['tipo']) && $_POST['tipo'] === 'subir_reporte_ticket_fragmento') {
     $nombreArchivo = $_FILES['archivo']['name'];
-    if (pathinfo($nombreArchivo, PATHINFO_EXTENSION) !== 'csv') {
-        echo json_encode(["success" => 0, "error" => "El archivo debe estar en formato CSV"]);
-        exit;
-    }
-
-    // Definir la ruta de destino donde se guardará el archivo temporalmente
     $rutaDestino = '/var/www/html/diniz/servicios/services/ventas-tickets/excel/' . $nombreArchivo;
+
+    // Mensaje de depuración inicial
+    $debug_message = "Inicio del procesamiento de fragmento\n";
+
+    if (!isset($_FILES['archivo']) || $_FILES['archivo']['error'] !== UPLOAD_ERR_OK) {
+        echo json_encode(["success" => 0, "error" => "No se recibió el fragmento o ocurrió un error en la subida", "debug" => $debug_message]);
+        exit;
+    }
+
+    // Mover el archivo al destino especificado
     if (!move_uploaded_file($_FILES['archivo']['tmp_name'], $rutaDestino)) {
-        echo json_encode(["success" => 0, "error" => "Error al mover el archivo a la carpeta destino: $rutaDestino"]);
+        echo json_encode(["success" => 0, "error" => "Error al mover el archivo al destino", "debug" => $debug_message]);
         exit;
     }
 
-    // Abrir el archivo CSV
-    $handle = fopen($rutaDestino, 'r');
-    if ($handle === false) {
-        echo json_encode(["success" => 0, "error" => "Error al abrir el archivo CSV en la ubicación $rutaDestino"]);
+    $debug_message .= "Archivo movido a la ruta $rutaDestino\n";
+
+    // Verificación del formato JSON
+    if (pathinfo($nombreArchivo, PATHINFO_EXTENSION) !== 'json') {
+        echo json_encode(["success" => 0, "error" => "El fragmento debe estar en formato JSON", "debug" => $debug_message]);
         exit;
     }
 
-    // Leer los encabezados
-    $encabezados = fgetcsv($handle);
-    if ($encabezados === false) {
-        echo json_encode(["success" => 0, "error" => "Error al leer los encabezados del archivo CSV"]);
-        fclose($handle);
+    // Leer el archivo en la nueva ubicación
+    $data = file_get_contents($rutaDestino);
+    $registros = json_decode($data, true);
+
+    if ($registros === null) {
+        echo json_encode(["success" => 0, "error" => "Error al decodificar el fragmento JSON", "debug" => $debug_message]);
         exit;
     }
 
-    $loteRegistros = [];
-    $registrosPorLote = 1000;  // Tamaño del lote
+    $debug_message .= "Archivo JSON decodificado\n";
+
+    // Variables para almacenar las fechas máxima y mínima
+    $fechasVenta = [];
+
+    // Recorrer los registros para extraer y convertir las fechas
+    foreach ($registros as $datos) {
+        $fechaVenta = DateTime::createFromFormat('Y-m-d H:i:s', $datos['FCH/HR VENTA']);
+        
+        if ($fechaVenta !== false) {
+            $fechasVenta[] = $fechaVenta;
+        }
+    }
+
+    // Calcular y almacenar las fechas mínima y máxima si existen fechas válidas
+    if (!empty($fechasVenta)) {
+        $fechaMinima = min($fechasVenta)->format('Y-m-d H:i:s');
+        $fechaMaxima = max($fechasVenta)->format('Y-m-d H:i:s');
+        $debug_message .= "Fechas calculadas exitosamente\n";
+    } else {
+        echo json_encode([
+            "success" => 0,
+            "error" => "No se encontraron fechas válidas en el archivo",
+            "debug" => $debug_message
+        ]);
+        exit;
+    }
+
+    // Verificar si existen registros dentro del rango de fechas
+    $queryCount = "SELECT COUNT(*) AS count FROM COINTECH_DB_PRUEBAS.dbo.Tickets_cs_facturacion 
+                   WHERE CAST(Fecha_vta AS DATE) BETWEEN '$fechaMinima' AND '$fechaMaxima'";
+    $resultCount = mssql_query($queryCount);
+    $countRow = mssql_fetch_assoc($resultCount);
+    $count = $countRow['count'];
+
+    if ($count > 0) {
+        // Si existen registros, eliminarlos antes de insertar
+        $queryDelete = "DELETE FROM COINTECH_DB_PRUEBAS.dbo.Tickets_cs_facturacion 
+                        WHERE CAST(Fecha_vta AS DATE) BETWEEN '$fechaMinima' AND '$fechaMaxima'";
+        mssql_query($queryDelete);
+        $debug_message .= "Registros eliminados en el rango de fechas $fechaMinima a $fechaMaxima\n";
+    } else {
+        $debug_message .= "No se encontraron registros previos en el rango de fechas $fechaMinima a $fechaMaxima\n";
+    }
+
+    // Procesar e insertar los registros en la base de datos
     $procesados = 0;
     $errores = 0;
+    $loteRegistros = [];
+    $registrosPorLote = 1000;
 
-    // Procesar cada fila del archivo CSV
-    while (($fila = fgetcsv($handle)) !== false) {
-        $datos = array_combine($encabezados, $fila);
-
-        // Preparar datos adicionales
+    foreach ($registros as $datos) {
         $datos['Fecha_vta'] = date('Y-m-d', strtotime($datos['FCH/HR VENTA']));
         $datos['Fecha_factura'] = date('Y-m-d', strtotime($datos['FECHA expedición Factura Global (Si existe)']));
         $datos['numero_comprobante'] = (strlen($datos['SERIE']) === 3)
             ? substr($datos['REFID'], 4, 10)
             : substr($datos['REFID'], 6, 7);
 
-        // Añadir el registro al lote
         $loteRegistros[] = $datos;
 
-        // Cuando el lote alcance el tamaño especificado, procesarlo
         if (count($loteRegistros) === $registrosPorLote) {
             if (!insertarLote($loteRegistros)) {
                 $errores += count($loteRegistros);
             } else {
                 $procesados += count($loteRegistros);
             }
-            // Limpiar el lote actual
             $loteRegistros = [];
         }
     }
 
-    // Procesar cualquier registro restante
     if (count($loteRegistros) > 0) {
         if (!insertarLote($loteRegistros)) {
             $errores += count($loteRegistros);
@@ -544,25 +587,30 @@ if (isset($_POST['tipo']) && $_POST['tipo'] === 'subir_reporte_ticket') {
         }
     }
 
-    // Cerrar el archivo
-    fclose($handle);
-
-    // Eliminar el archivo CSV después de procesarlo
+    // Eliminar el archivo después de la inserción
     if (file_exists($rutaDestino)) {
         unlink($rutaDestino);
+        $debug_message .= "Archivo $rutaDestino eliminado después de la inserción\n";
     }
 
-    // Respuesta al cliente
+    // Respuesta final con todos los datos
     echo json_encode([
-        "success" => 1, 
-        "message" => "Archivo procesado. Registros procesados: $procesados, Errores: $errores",
+        "success" => 1,
+        "fecha_minima" => $fechaMinima,
+        "fecha_maxima" => $fechaMaxima,
+        "processed" => $procesados,
+        "errors" => $errores,
+        "message" => "Fragmento procesado y archivo eliminado",
+        "debug" => $debug_message
     ]);
+    exit;
 }
 
-// Función para insertar un lote de registros
+// Función para insertar los registros en lotes
 function insertarLote($loteRegistros) {
+    global $debug_message;
+    $debug_message .= "Iniciando inserción de lote\n";
     $valores = [];
-
     foreach ($loteRegistros as $datos) {
         $valores[] = "(
             '" . $datos['FCH/HR VIGENCIA'] . "',
@@ -597,7 +645,6 @@ function insertarLote($loteRegistros) {
             CAST('" . $datos['numero_comprobante'] . "' AS INT)
         )";
     }
-
     $query = "INSERT INTO COINTECH_DB_PRUEBAS.dbo.Tickets_cs_facturacion
         ([fecha_hora_vigencia], [fecha_hora_vta], [fecha_recepcion], [REFID], [ESTATUS], [SERIE], [SUBTOTAL], [DESCUENTO], [IVA], 
         [ieps_trasladp_6], [ieps_traslado_8], [ieps_tralado_0 265], [ieps_tralado_0 53], [otros_ieps], [TOTAL], [Folio_Fctura_Ingreso], 
@@ -607,10 +654,15 @@ function insertarLote($loteRegistros) {
         [Fecha_vta], [Fecha_factura], [numero_comprobante])
         VALUES " . implode(", ", $valores);
 
-    return mssql_query($query);
+    $result = mssql_query($query);
+    $debug_message .= "Resultado de la inserción: " . ($result ? "Éxito\n" : "Fallo\n");
+    return $result;
 }
 
 
+
+
+//FIN
 
 
 
