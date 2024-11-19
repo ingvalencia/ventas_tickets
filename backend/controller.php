@@ -419,7 +419,7 @@ if ($tipo == 'obtener_locales') {
     // Consulta principal para obtener los datos paginados y ordenados
     $query = "SELECT *
               $baseQuery
-              ORDER BY SERIE, Fecha_vta
+              ORDER BY  Fecha_vta ASC
               OFFSET $offset ROWS FETCH NEXT $pageSize ROWS ONLY";
               
     $result = fetch_data($query, $mysqli);

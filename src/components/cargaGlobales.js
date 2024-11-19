@@ -250,7 +250,7 @@ const CargaGlobal = () => {
     // Función para obtener datos paginados
     const fetchPageData = async (page) => {
         setIsLoading(true);
-        setResults([]);
+        setResults([]); // Limpiar resultados previos mientras se carga
         try {
             const response = await fetch('https://diniz.com.mx/diniz/servicios/services/ventas-tickets/controller.php', {
                 method: 'POST',
@@ -266,12 +266,21 @@ const CargaGlobal = () => {
                     pageSize: itemsPerPage,
                 }),
             });
-
+    
             const data = await response.json();
             if (data.success === 1) {
-                setResults(data.data);
-                setTotalItems(data.total);
-                setCurrentPage(page);
+                if (data.data.length === 0) {
+                    // Mostrar alerta si no hay datos
+                    Swal.fire({
+                        icon: 'info',
+                        title: 'Sin resultados',
+                        text: 'No hay registros para el rango de fechas seleccionado.',
+                    });
+                } else {
+                    setResults(data.data); // Actualizar los resultados para mostrarlos en la tabla
+                    setTotalItems(data.total); // Actualizar el total de elementos para la paginación
+                    setCurrentPage(page); // Actualizar la página actual
+                }
             } else {
                 Swal.fire({
                     icon: 'error',
@@ -286,9 +295,10 @@ const CargaGlobal = () => {
                 text: 'Error al realizar la consulta',
             });
         } finally {
-            setIsLoading(false);
+            setIsLoading(false); // Finalizar el estado de carga
         }
     };
+    
 
     const handlePageClick = ({ selected }) => {
         fetchPageData(selected);
