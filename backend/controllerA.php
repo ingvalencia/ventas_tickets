@@ -120,28 +120,28 @@ if ($tipo == 'obtener_locales') {
 
         INSERT INTO @tqbvtas
         SELECT CAST([SERIE] AS nvarchar(10)), [Fecha_vta], 0, SUM(CAST([TOTAL] AS decimal(12,2))) total, 0, 0
-        FROM [192.168.0.174].[COINTECH_DB].[dbo].[Tickets_cs_facturacion]
+        FROM [192.168.0.174].[COINTECH_DB_PRUEBAS].[dbo].[Tickets_cs_facturacion]
         WHERE fecha_vta BETWEEN @feci AND @fecf
         GROUP BY [SERIE], [Fecha_vta]
         ORDER BY [SERIE], [Fecha_vta];
 
         INSERT INTO @tqbvtas
         SELECT CAST([CLOCAL] AS nvarchar(10)), [FECHA], 0, 0, SUM([IMPORTE]), 0
-        FROM [192.168.0.174].[COINTECH_DB].[dbo].[FA_POS_TICKETS_FAL]
+        FROM [192.168.0.174].[COINTECH_DB_PRUEBAS].[dbo].[FA_POS_TICKETS_FAL]
         WHERE fecha BETWEEN @feci AND @fecf
         GROUP BY [CLOCAL], [FECHA]
         ORDER BY [CLOCAL], [FECHA];
 
         INSERT INTO @tqbvtas
         SELECT CAST([CEF] AS nvarchar(10)), CAST([FECHA] AS date), 0, 0, 0, SUM(CAST([IMPORTE] AS decimal(12,2)))
-        FROM [192.168.0.174].[COINTECH_DB].[dbo].[tickets_db_cointech_cef]
+        FROM [192.168.0.174].[COINTECH_DB_PRUEBAS].[dbo].[tickets_db_cointech_cef]
         WHERE fecha BETWEEN @feci AND @fecf
         GROUP BY [CEF], [FECHA]
         ORDER BY [CEF], [FECHA];
 
         INSERT INTO @tabfac
         SELECT CAST([SERIE] AS nvarchar(10)), [Fecha_vta], [Fecha_factura], [uuid_Global_Si_ existe], [ESTATUS], SUM(CAST([TOTAL] AS decimal(12,2))) total
-        FROM [192.168.0.174].[COINTECH_DB].[dbo].[Tickets_cs_facturacion]
+        FROM [192.168.0.174].[COINTECH_DB_PRUEBAS].[dbo].[Tickets_cs_facturacion]
         WHERE [Fecha_vta] BETWEEN @feci AND @fecf
         GROUP BY [SERIE], [Fecha_vta], [Fecha_factura], [uuid_Global_Si_ existe], [ESTATUS]
         ORDER BY [SERIE], [Fecha_vta], [Fecha_factura], [uuid_Global_Si_ existe], [ESTATUS];
@@ -230,7 +230,7 @@ if ($tipo == 'obtener_locales') {
         -- Sumar las ventas por CEF, fecha desde el servidor vinculado [192.168.0.59]
         INSERT INTO @tabvtas
         SELECT [SERIE], [Fecha_vta], SUM(CAST([TOTAL] AS decimal(12,2)))
-        FROM [COINTECH_DB].[dbo].[Tickets_cs_facturacion]
+        FROM [COINTECH_DB_PRUEBAS].[dbo].[Tickets_cs_facturacion]
         WHERE [Fecha_vta] BETWEEN '$feci' AND '$fecf'
         GROUP BY [SERIE], [Fecha_vta]
         ORDER BY [SERIE], [Fecha_vta];
@@ -288,7 +288,7 @@ if ($tipo == 'obtener_locales') {
         CAST([NUMERO_COMPROBANTE] AS bigint) as numero_comprobante,
         CAST([IMPORTE] AS decimal(12, 2)) as importe_vta
     FROM
-        [COINTECH_DB].[dbo].[tickets_db_cointech_cef]
+        [COINTECH_DB_PRUEBAS].[dbo].[tickets_db_cointech_cef]
     WHERE
         cef = '$cef'
         AND fecha = '$fecha'
@@ -335,7 +335,7 @@ if ($tipo == 'obtener_locales') {
             [Periodicidad_Global] AS 'periodicidad',
             [Mes_Global] AS 'mes_global',
             [Año_Global] AS 'año_global'
-        FROM [COINTECH_DB].[dbo].[Tickets_cs_facturacion]
+        FROM [COINTECH_DB_PRUEBAS].[dbo].[Tickets_cs_facturacion]
         WHERE serie = '$cef'
         AND Fecha_vta BETWEEN '$fecha' AND '$fecha'
         ORDER BY [SERIE], [Fecha_vta], [Fecha_factura]
@@ -399,7 +399,7 @@ if ($tipo == 'obtener_locales') {
     mssql_query("SET ANSI_WARNINGS ON", $mysqli);
 
     // Construir la consulta base con el filtro de fechas
-    $baseQuery = "FROM [COINTECH_DB].[dbo].[Tickets_cs_facturacion]
+    $baseQuery = "FROM [COINTECH_DB_PRUEBAS].[dbo].[Tickets_cs_facturacion]
                   WHERE Fecha_vta BETWEEN '$fechaInicial' AND '$fechaFinal'";
 
     // Agregar el filtro de SERIE solo si $cef no es "TODOS"
@@ -453,7 +453,7 @@ if ($tipo == 'obtener_locales') {
 
     // Consulta para obtener los datos en un rango
     $query = "SELECT *
-              FROM [COINTECH_DB].[dbo].[Tickets_cs_facturacion]
+              FROM [COINTECH_DB_PRUEBAS].[dbo].[Tickets_cs_facturacion]
               WHERE Fecha_vta BETWEEN '$fechaInicial' AND '$fechaFinal'
               " . ($cef !== "TODOS" ? " AND SERIE = '$cef'" : "") . "
               ORDER BY Fecha_vta
@@ -504,7 +504,7 @@ if ($tipo == 'obtener_locales') {
     mssql_query("SET ANSI_WARNINGS ON", $mysqli);
 
     // Construir la consulta base con el filtro de fechas
-    $baseQuery = "FROM [COINTECH_DB].[dbo].[tickets_db_cointech_cef]
+    $baseQuery = "FROM [COINTECH_DB_PRUEBAS].[dbo].[tickets_db_cointech_cef]
                   WHERE fecha BETWEEN '$fechaInicial' AND '$fechaFinal'
                   AND (CAST(IMPORTE AS DECIMAL(12, 2)) < 0 OR CAST(NUMERO_COMPROBANTE AS INT) = 0)";
 
@@ -565,7 +565,7 @@ elseif ($tipo === 'elimina_registros_carga_global') {
     do {
         $query = "
             DELETE TOP ($batchSize)
-            FROM COINTECH_DB.dbo.Tickets_cs_facturacion
+            FROM COINTECH_DB_PRUEBAS.dbo.Tickets_cs_facturacion
             WHERE CAST(Fecha_vta AS DATE) BETWEEN '$fechaMin' AND '$fechaMax'";
 
         $result = mssql_query($query, $mysqli);
@@ -717,7 +717,7 @@ function insertarLote($loteRegistros) {
         )";
     }
 
-    $query = "INSERT INTO COINTECH_DB.dbo.Tickets_cs_facturacion
+    $query = "INSERT INTO COINTECH_DB_PRUEBAS.dbo.Tickets_cs_facturacion
         ([fecha_hora_vigencia], [fecha_hora_vta], [fecha_recepcion], [REFID], [ESTATUS], [SERIE], [SUBTOTAL], [DESCUENTO], [IVA], 
         [ieps_trasladp_6], [ieps_traslado_8], [ieps_tralado_0 265], [ieps_tralado_0 53], [otros_ieps], [TOTAL], [Folio_Fctura_Ingreso], 
         [UUI_factura_Ingreso], [fecha_expedición_Factura_Ingreso], [Folio_Factura_egreso_Si_existe], [uuid_Factura_Egreso_Si_existe], 

@@ -97,120 +97,236 @@ const CargaGlobal = () => {
                 cancelButton: 'btn btn-outline-secondary'
             },
             buttonsStyling: false,
-            preConfirm: (archivo) => {
+            preConfirm: async (archivo) => {
                 if (!archivo) {
                     Swal.showValidationMessage('Por favor, selecciona un archivo');
                     return false;
                 }
     
                 const MAX_FILE_SIZE = 1 * 1024 * 1024 * 1024; // Tamaño máximo de archivo: 1 GB
-    
                 if (archivo.size > MAX_FILE_SIZE) {
                     Swal.showValidationMessage('El archivo es demasiado grande. Máximo 1 GB');
                     return false;
                 }
     
-                // Mostrar alerta de carga
-                Swal.fire({
-                    title: 'Cargando archivo...',
-                    text: 'Por favor, espera mientras se procesa el archivo.',
-                    allowOutsideClick: false,
-                    allowEscapeKey: false,
-                    didOpen: () => {
-                        Swal.showLoading();
-                    }
-                });
+                // Paso 1: Detectar fechas máxima y mínima
+                const fechas = await obtenerFechasDelArchivo(archivo);
+                if (!fechas) return false; // Si falla, detener el flujo
     
-                // Iniciar el procesamiento y carga del archivo en fragmentos
+                // Paso 2: Llamar al backend para eliminar registros
+                const eliminacionExitosa = await eliminarRegistros(fechas.fechaMin, fechas.fechaMax);
+                if (!eliminacionExitosa) return false;
+    
+                // Paso 3: Procesar y cargar archivo en fragmentos
                 return procesarYSubirArchivoEnFragmentos(archivo);
             },
             icon: 'info',
         });
     };
 
-    // Función para dividir el archivo en fragmentos y subir cada fragmento al backend
-    const procesarYSubirArchivoEnFragmentos = async (archivo) => {
-        const CHUNK_SIZE = 10000; // Tamaño del fragmento en número de registros
-        const data = await archivo.arrayBuffer();
-        const workbook = XLSX.read(data, { type: 'array' });
-        const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+    const obtenerFechasDelArchivo = async (archivo) => {
+        try {
+            Swal.fire({
+                title: 'Procesando archivo...',
+                text: 'Detectando fechas máxima y mínima...',
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                didOpen: () => Swal.showLoading()
+            });
     
-        // Convertir la hoja a JSON
-        const jsonData = XLSX.utils.sheet_to_json(worksheet);
-        const totalRecords = jsonData.length;
-        const totalChunks = Math.ceil(totalRecords / CHUNK_SIZE);
+            const data = await archivo.arrayBuffer();
+            const workbook = XLSX.read(data, { type: 'array' });
+            const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+            const jsonData = XLSX.utils.sheet_to_json(worksheet);
     
-        let processedRecords = 0;
+            const fechas = jsonData.map((row) => row['FCH/HR VENTA']?.split(' ')[0]).filter(Boolean);
+            const fechaMin = fechas.reduce((min, cur) => (cur < min ? cur : min), fechas[0]);
+            const fechaMax = fechas.reduce((max, cur) => (cur > max ? cur : max), fechas[0]);
     
-        for (let i = 0; i < totalChunks; i++) {
-            const chunkData = jsonData.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
-    
-            // Crear un Blob del fragmento JSON y enviarlo al servidor
-            const csvBlob = new Blob([JSON.stringify(chunkData)], { type: 'application/json' });
-            const csvFile = new File([csvBlob], `reporte_fragmento_${i + 1}.json`, { type: 'application/json' });
-    
-            // Subir cada fragmento y verificar el progreso
-            const result = await subirFragmento(csvFile, i + 1, totalChunks);
-    
-            if (result && result.success) {
-                processedRecords += result.processed; // Acumula los registros procesados en cada fragmento
-            } else {
-                Swal.fire('Error', `Hubo un problema al subir el fragmento ${i + 1}`, 'error');
-                return;
-            }
-        }
-    
-        // Cerrar alerta de carga
-        Swal.close();
-    
-        // Verificación final del total de registros
-        if (processedRecords === totalRecords) {
-            Swal.fire('Éxito', `El archivo completo fue cargado exitosamente con ${processedRecords} registros.`, 'success');
-        } else {
-            Swal.fire('Advertencia', `Se esperaba cargar ${totalRecords} registros, pero solo se procesaron ${processedRecords}.`, 'warning');
+            Swal.close();
+            return { fechaMin, fechaMax };
+        } catch (error) {
+            Swal.fire('Error', 'No se pudieron detectar las fechas del archivo.', 'error');
+            console.error(error);
+            return null;
         }
     };
 
-    // Función para subir cada fragmento al servidor
-    const subirFragmento = async (archivo, fragmentoNumero, totalFragmentos) => {
-        Swal.fire({
-            title: `Subiendo fragmento ${fragmentoNumero} de ${totalFragmentos}`,
-            text: 'Por favor, espera...',
-            allowOutsideClick: false,
-            didOpen: () => {
-                Swal.showLoading();
+    const eliminarRegistros = async (fechaMin, fechaMax) => {
+        try {
+            Swal.fire({
+                title: 'Eliminando registros...',
+                html: `<p>Rango de fechas: <strong>${fechaMin}</strong> a <strong>${fechaMax}</strong></p>
+                       <div style="width: 100%; background-color: #f3f3f3; border-radius: 5px; height: 20px;">
+                           <div id="progress-bar-delete" style="width: 0%; background-color: #4caf50; height: 100%; border-radius: 5px;"></div>
+                       </div>`,
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                didOpen: () => Swal.showLoading()
+            });
+    
+            const response = await fetch('https://diniz.com.mx/diniz/servicios/services/ventas-tickets/controller.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    tipo: 'elimina_registros_carga_global',
+                    fechaMin,
+                    fechaMax
+                })
+            });
+    
+            const result = await response.json();
+    
+            if (result.success !== 1) {
+                // Mostrar mensaje de error específico si viene del backend
+                Swal.fire({
+                    title: 'Error al eliminar registros',
+                    html: `<p>${result.error || 'Ocurrió un error desconocido.'}</p>`,
+                    icon: 'error',
+                    confirmButtonText: 'Aceptar'
+                });
+                return false;
             }
-        });
+    
+            // Mostrar mensaje de éxito por 5 segundos
+            Swal.fire({
+                title: 'Éxito',
+                html: `<p>${result.message}</p>`,
+                icon: 'success',
+                timer: 5000,
+                timerProgressBar: true,
+                showConfirmButton: false
+            });
+    
+            await new Promise((resolve) => setTimeout(resolve, 5000)); // Pausa de 5 segundos
+    
+            // Mostrar SweetAlert de "Procesando..."
+            Swal.fire({
+                title: 'Procesando...',
+                html: '<p>Preparando la carga de fragmentos...</p>',
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                didOpen: () => Swal.showLoading()
+            });
+    
+            return true;
+        } catch (error) {
+            Swal.fire('Error', error.message, 'error');
+            console.error(error);
+            return false;
+        }
+    };
+    
+    
+    
 
+    const subirFragmento = async (archivo, fragmentoNumero, totalFragmentos) => {
         const formData = new FormData();
         formData.append('archivo', archivo);
         formData.append('tipo', 'subir_reporte_ticket_fragmento');
         formData.append('fragmentoNumero', fragmentoNumero);
         formData.append('totalFragmentos', totalFragmentos);
-
+    
         try {
             const response = await fetch('https://diniz.com.mx/diniz/servicios/services/ventas-tickets/controller.php', {
                 method: 'POST',
                 body: formData,
             });
-
+    
             if (!response.ok) {
                 throw new Error(`Error HTTP: ${response.status}`);
             }
-
+    
             const data = await response.json();
             if (data.success !== 1) {
                 throw new Error(data.error || 'Error desconocido');
             }
-
-            return data;
+    
+            return data; // Devuelve la respuesta en caso de éxito
         } catch (error) {
-            Swal.close();
             console.error(`Error al procesar el fragmento ${fragmentoNumero}:`, error);
-            return null;
+            return null; // Devuelve null en caso de error
         }
     };
+    
 
+    const procesarYSubirArchivoEnFragmentos = async (archivo) => {
+        const CHUNK_SIZE = 10000;
+        const data = await archivo.arrayBuffer();
+        const workbook = XLSX.read(data, { type: 'array' });
+        const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet);
+        const totalRecords = jsonData.length;
+        const totalChunks = Math.ceil(totalRecords / CHUNK_SIZE);
+    
+        let processedRecords = 0;
+        let insertedRecords = 0;
+        let errorRecords = [];
+    
+        // Mostrar alerta SweetAlert para el progreso
+        Swal.fire({
+            title: 'Cargando archivo...',
+            html: `
+                <div style="width: 100%; background-color: #f3f3f3; border-radius: 5px; height: 20px;">
+                    <div id="progress-bar" style="width: 0%; background-color: #4caf50; height: 100%; border-radius: 5px;"></div>
+                </div>
+                <p id="progress-text" style="margin-top: 10px;">Procesando 0%</p>
+            `,
+            allowOutsideClick: false,
+            allowEscapeKey: false,
+            didOpen: () => Swal.showLoading()
+        });
+    
+        for (let i = 0; i < totalChunks; i++) {
+            const chunkData = jsonData.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
+            const csvBlob = new Blob([JSON.stringify(chunkData)], { type: 'application/json' });
+            const csvFile = new File([csvBlob], `reporte_fragmento_${i + 1}.json`, { type: 'application/json' });
+    
+            const result = await subirFragmento(csvFile, i + 1, totalChunks);
+    
+            if (result && result.success) {
+                processedRecords += result.processed || 0;
+                insertedRecords += result.inserted || 0;
+    
+                const errors = Array.isArray(result.error_details) ? result.error_details : [];
+                errorRecords.push(...errors);
+            } else {
+                Swal.fire('Error', `Hubo un problema al subir el fragmento ${i + 1}`, 'error');
+                return;
+            }
+    
+            // Actualizar barra de progreso
+            const progress = Math.floor(((i + 1) / totalChunks) * 100);
+            const progressBar = document.getElementById('progress-bar');
+            const progressText = document.getElementById('progress-text');
+    
+            if (progressBar && progressText) {
+                progressBar.style.width = `${progress}%`;
+                progressText.textContent = `Procesando ${progress}%`;
+            }
+        }
+    
+        Swal.close();
+    
+        // Mostrar resultados del proceso
+        Swal.fire(
+            'Resultado del Proceso',
+            `
+                Registros en el archivo: ${totalRecords}
+                Registros procesados: ${processedRecords}
+                Registros insertados: ${insertedRecords}
+                Registros con errores: ${errorRecords.length}
+                Detalles de errores: ${errorRecords.join('\n')}
+            `,
+            processedRecords === totalRecords && insertedRecords === totalRecords ? 'success' : 'warning'
+        );
+    };
+    
+    
+    
+    
+    
+    
 
     // FIN
    
@@ -248,7 +364,7 @@ const CargaGlobal = () => {
     };
 
     // Función para obtener datos paginados
-    const fetchPageData = async (page) => {
+        const fetchPageData = async (page) => {
         setIsLoading(true);
         setResults([]); // Limpiar resultados previos mientras se carga
         try {
@@ -266,7 +382,7 @@ const CargaGlobal = () => {
                     pageSize: itemsPerPage,
                 }),
             });
-    
+
             const data = await response.json();
             if (data.success === 1) {
                 if (data.data.length === 0) {
@@ -298,7 +414,7 @@ const CargaGlobal = () => {
             setIsLoading(false); // Finalizar el estado de carga
         }
     };
-    
+
 
     const handlePageClick = ({ selected }) => {
         fetchPageData(selected);
