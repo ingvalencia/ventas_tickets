@@ -46,6 +46,50 @@ mssql_query("SET ANSI_WARNINGS ON", $mysqli);
 $data = json_decode(file_get_contents('php://input'), true);
 $tipo = isset($data['tipo']) ? $data['tipo'] : null;
 
+
+if ($tipo == 'get_roles_empleados') {
+    $datosRol1 = [];
+    $datosRol2 = [];
+    $datosRol3 = [];
+
+    $query = "SELECT noempl, rol FROM COINTECH_DB.dbo.VT_usuarios_roles";
+    $stmt = mssql_query($query, $mysqli);
+
+    if ($stmt === false) {
+        echo json_encode(["success" => 0, "error" => "Error al ejecutar la consulta", "details" => mssql_get_last_message()]);
+        exit;
+    }
+
+    while ($row = mssql_fetch_assoc($stmt)) {
+        switch ($row['rol']) {
+            case 1:
+                $datosRol1[] = $row['noempl'];
+                break;
+            case 2:
+                $datosRol2[] = $row['noempl'];
+                break;
+            case 3:
+                $datosRol3[] = $row['noempl'];
+                break;
+        }
+    }
+
+    $datos = [
+        'rol1' => $datosRol1,
+        'rol2' => $datosRol2,
+        'rol3' => $datosRol3
+    ];
+
+    if (!empty($datos)) {
+        echo json_encode(["success" => 1, "datos" => $datos]);
+    } else {
+        echo json_encode(["success" => 0, "query" => $query]);
+    }
+
+    mssql_free_result($stmt);
+}
+
+
 // Obtener los locales activos (tipo: 'obtener_locales')
 if ($tipo == 'obtener_locales') {
     $query = "SELECT sigla, ipserver, rutadb, userdb, passdb FROM ADM_CEFS WHERE activo = 1";
@@ -236,17 +280,16 @@ if ($tipo == 'obtener_locales') {
         ORDER BY [SERIE], [Fecha_vta];
 
         -- Selección de las ventas desde el servidor vinculado
-        SELECT vt.[cef], vt.[fecha], 
+        SELECT case when vt.cef ='PBMIM' then 'MIM' ELSE vt.cef END  CEF, vt.[fecha], 
         (ISNULL(vt.[venta], 0) - ISNULL(vt.[ventaWeb], 0)) AS vtas_real,  
         CAST(ISNULL(tm.impvta, 0) AS decimal(12, 2)) AS 'imp_global', 
         CAST(ISNULL((ISNULL(vt.[venta], 0) - ISNULL(vt.[ventaWeb], 0)) - ISNULL(tm.impvta, 0), 0) AS decimal(12, 2)) AS Diferencia 
         FROM [192.168.0.59].[GrupoDiniz].[dbo].[rtv_ventas] vt
-        LEFT JOIN @tabvtas tm 
-            ON tm.cef = vt.cef COLLATE Modern_Spanish_CI_AS 
-            AND tm.fec = vt.fecha
+        LEFT JOIN @tabvtas tm ON tm.cef = case when vt.cef ='PBMIM' then 'MIM' ELSE vt.cef END  COLLATE Modern_Spanish_CI_AS AND tm.fec = vt.fecha
         WHERE vt.fecha BETWEEN '$feci' AND '$fecf' 
         AND vt.cef LIKE '$cef'
         ORDER BY vt.[cef], vt.[fecha];
+
     ";
 
 

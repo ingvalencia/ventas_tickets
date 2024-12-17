@@ -167,7 +167,7 @@ const OtrosReportes = () => {
         // Agregar datos y aplicar formato condicional
         results.forEach((result, index) => {
             const row = worksheet.addRow({
-                cef: result.cef,
+                cef: result.CEF,
                 fecha: formatFecha(result.fecha),
                 vtas_real: !isNaN(parseFloat(result.vtas_real)) && result.vtas_real !== null
                     ? parseFloat(result.vtas_real)
@@ -700,9 +700,7 @@ const OtrosReportes = () => {
             Swal.fire('Error', 'Hubo un problema con la solicitud', 'error');
         }
     };
-    
-    
-    
+     
     return (
         <div className="container mt-4">
             <h5>Revisión Ventas Cointech vs Factura Global</h5>
@@ -771,6 +769,7 @@ const OtrosReportes = () => {
                         </thead>
                         <tbody>
                             {currentResults.map((result, index) => (
+                                console.log(result),
                                 <tr key={index}>
                                     <td
                                         style={{
@@ -792,7 +791,7 @@ const OtrosReportes = () => {
                                                 : 'transparent'
                                         }}
                                     >
-                                        {result.cef}
+                                        {result.CEF}
                                     </td>
                                     <td
                                         style={{
@@ -804,7 +803,7 @@ const OtrosReportes = () => {
                                         }}
                                     >
                                         <td>
-                                            <a href="#" onClick={() => handleFechaClick(formatFecha(result.fecha), result.cef)}>
+                                            <a href="#" onClick={() => handleFechaClick(formatFecha(result.fecha), result.CEF)}>
                                             {formatFecha(result.fecha)}
                                             </a>
                                         </td>
@@ -885,6 +884,7 @@ const OtrosReportes = () => {
                     />
                     </>
                 )
+               
             )}
         </div>
     );
