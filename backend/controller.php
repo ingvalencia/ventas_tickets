@@ -419,6 +419,13 @@ if ($tipo == 'obtener_locales') {
 
     // Asignar los valores enviados por el frontend
     $cef = $data['cef'];
+
+    if ($cef === 'PBMIM') {
+        $cef = 'MIM';
+    }else{
+        $cef = $data['cef'];
+    }
+
     $fechaInicial = $data['feci'];
     $fechaFinal = $data['fecf'];
     $page = (int)$data['page'];
